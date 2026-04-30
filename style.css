@@ -778,3 +778,49 @@ html, body {
   animation: fade-up 0.2s ease;
   backdrop-filter: blur(8px);
 }
+
+/* ─── Extension warning banner ───────────────────────────────── */
+.ext-warning {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 10, 0, 0.93);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 8px;
+  padding: 10px 14px 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #f5c060;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  animation: fade-up 0.3s ease;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.ext-warning svg {
+  color: #f5a623;
+  flex-shrink: 0;
+}
+
+.ext-warning b {
+  color: #fff;
+  font-weight: 500;
+}
+
+.ext-warning-close {
+  background: none;
+  border: none;
+  color: rgba(245,160,60,0.5);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-left: 6px;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.ext-warning-close:hover { color: #f5a623; }
