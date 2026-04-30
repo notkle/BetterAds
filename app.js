@@ -724,6 +724,7 @@ function dismissExtWarning() {
 
 function copyDebuggingUrl(btn) {
   navigator.clipboard.writeText('about:debugging#/runtime/this-firefox').then(() => {
+    window.open('about:blank', '_blank');
     btn.textContent = '✓ copied — paste in new tab';
     setTimeout(() => { btn.textContent = 'about:debugging ↗'; }, 2500);
   });
