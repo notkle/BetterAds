@@ -296,8 +296,12 @@ document.getElementById('favInput').addEventListener('keydown', e => {
 });
 
 // ─── Live status checking ─────────────────────────────────────
-// Uses Twitch's stream thumbnail — only exists when channel is live.
-// No API key required. Checks every 60 seconds.
+// Uses Twitch's internal GraphQL endpoint with their own hardcoded
+// public Client ID. No registration or API key needed.
+// Batches all favorites into a single request per poll cycle.
+
+const TWITCH_GQL      = 'https://gql.twitch.tv/gql';
+const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 let liveTimer = null;
 
 function startLivePolling() {
@@ -310,23 +314,44 @@ function stopLivePolling() {
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
 }
 
-function checkAllLive() {
-  favorites.forEach(ch => checkLive(ch));
-}
+async function checkAllLive() {
+  if (favorites.length === 0) return;
 
-function checkLive(channel) {
-  const img = new Image();
-  const ts  = Date.now(); // cache bust
-  img.src   = `https://static-cdn.jtvnw.net/previews-ttv/live_user_${channel}-320x180.jpg?ts=${ts}`;
+  // Batch all channels into one GraphQL request
+  const queries = favorites.map(ch => ({
+    operationName: 'StreamMetadata',
+    variables:     { channelLogin: ch },
+    extensions: {
+      persistedQuery: {
+        version:    1,
+        sha256Hash: 'a647c2a13599e5991e175155f798ca7f1ecddde73f7f341f39009c14dbf59b56',
+      },
+    },
+  }));
 
-  img.onload = () => {
-    // Twitch returns a small placeholder (usually < 3KB) when offline
-    // A real live thumbnail is much larger
-    // We check naturalWidth — offline placeholder is exactly 320x180 solid color
-    // Live thumbnails have real content. Not 100% reliable but good enough.
-    setLiveDot(channel, img.naturalWidth >= 100 && img.naturalHeight >= 50);
-  };
-  img.onerror = () => setLiveDot(channel, false);
+  try {
+    const res = await fetch(TWITCH_GQL, {
+      method:  'POST',
+      headers: {
+        'Client-ID':   TWITCH_CLIENT_ID,
+        'Content-Type':'application/json',
+      },
+      body: JSON.stringify(queries),
+    });
+
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Response is an array matching the order of our queries
+    const results = Array.isArray(data) ? data : [data];
+    results.forEach((item, i) => {
+      const ch     = favorites[i];
+      const stream = item?.data?.user?.stream;
+      setLiveDot(ch, !!stream);
+    });
+  } catch (_) {
+    // Network error — don't change dot states, try again next tick
+  }
 }
 
 function setLiveDot(channel, isLive) {
@@ -334,10 +359,10 @@ function setLiveDot(channel, isLive) {
   if (!dot) return;
   if (isLive) {
     dot.classList.add('live');
-    dot.title = `${channel} is live!`;
+    dot.title = `${channel} is live`;
   } else {
     dot.classList.remove('live');
-    dot.title = '';
+    dot.title = `${channel} is offline`;
   }
 }
 
