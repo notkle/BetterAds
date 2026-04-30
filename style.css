@@ -516,6 +516,16 @@ html, body {
   transition: width 1s linear;
 }
 
+.yt-progress-fill.is-live {
+  background: #22c55e;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+.yt-time-current.is-live {
+  color: #22c55e;
+  font-size: 9px;
+}
+
 .yt-time-row {
   display: flex;
   align-items: center;
