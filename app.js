@@ -531,56 +531,47 @@ function cancelHubClose() {
   if (hubHideTimer) { clearTimeout(hubHideTimer); hubHideTimer = null; }
 }
 
-// ─── Hub: YouTube editing ─────────────────────────────────────
-function saveYouTubeUrl() {
-  const val = document.getElementById('hubYtInput').value.trim();
-  if (!val) {
-    state.youtubeId = '';
-    document.getElementById('youtubeFrame').src = 'about:blank';
-    renderHubYouTube();
-    return;
+// ─── Hub: YouTube section render ──────────────────────────────
+function renderHubYouTube() {
+  const smartSection  = document.getElementById('hubSmartSection');
+  const manualSection = document.getElementById('hubManualSection');
+  const carousel      = document.getElementById('playlistCarousel');
+  const smartEmpty    = document.getElementById('hubSmartEmpty');
+  const thumbWrap     = document.getElementById('playlistThumbWrap');
+
+  if (state.smartAds) {
+    if (smartSection)  smartSection.classList.remove('hub-section-grayed');
+    if (manualSection) manualSection.classList.add('hub-section-grayed');
+    if (thumbWrap)     thumbWrap.classList.add('smart-active-border');
+    if (playlist.videos.length) {
+      if (carousel)   carousel.style.display  = 'flex';
+      if (smartEmpty) smartEmpty.style.display = 'none';
+    } else {
+      if (carousel)   carousel.style.display  = 'none';
+      if (smartEmpty) smartEmpty.style.display = 'block';
+    }
+  } else {
+    if (smartSection)  smartSection.classList.add('hub-section-grayed');
+    if (manualSection) manualSection.classList.remove('hub-section-grayed');
+    if (thumbWrap)     thumbWrap.classList.remove('smart-active-border');
+    if (playlist.videos.length) {
+      if (carousel)   carousel.style.display  = 'flex';
+      if (smartEmpty) smartEmpty.style.display = 'none';
+    } else {
+      if (carousel)   carousel.style.display  = 'none';
+    }
   }
-  const id = extractYouTubeId(val);
-  if (!id) { shake('hubYtInput'); return; }
-  loadYouTube(id, val);
-  const btn = document.querySelector('.hub-save-btn');
-  btn.textContent = '✓';
-  setTimeout(() => { btn.textContent = 'save'; }, 1500);
+
+  syncHubSmartToggle();
 }
 
-// Safe event delegation for hub inputs — use event delegation on document
+// Safe event delegation for hub inputs
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const id = e.target?.id;
   if (id === 'favInput')        addFavorite();
   if (id === 'hubKeywordInput') searchManualPlaylist();
 });
-
-function renderHubYouTube() {
-  const thumb   = document.getElementById('ytThumb');
-  const noVideo = document.getElementById('ytNoVideo');
-  const overlay = document.getElementById('ytThumbOverlay');
-
-  if (!state.youtubeId && !state.smartAds) {
-    thumb.style.display   = 'none';
-    overlay.style.display = 'none';
-    noVideo.style.display = 'flex';
-    return;
-  }
-
-  if (state.smartAds) {
-    thumb.style.display   = 'none';
-    overlay.style.display = 'none';
-    noVideo.textContent   = 'smart ads active — auto-selected';
-    noVideo.style.display = 'flex';
-    return;
-  }
-
-  noVideo.style.display = 'none';
-  thumb.src = `https://img.youtube.com/vi/${state.youtubeId}/mqdefault.jpg`;
-  thumb.style.display   = 'block';
-  overlay.style.display = 'block';
-}
 
 // ─── YouTube progress tracking ────────────────────────────────
 window.addEventListener('message', e => {
@@ -625,21 +616,8 @@ function stopYtProgress() {
 }
 
 function updateYtProgressDisplay() {
-  if (state.isLiveStream) {
-    document.getElementById('ytProgressFill').style.width = '100%';
-    document.getElementById('ytTimeCurrent').textContent  = '● live';
-    document.getElementById('ytTimeTotal').textContent    = '';
-    document.getElementById('ytTimeSep').style.display    = 'none';
-    return;
-  }
-  const cur   = state.ytCurrent;
-  const total = state.ytDuration;
-  if (cur === null || total === null || total === 0) return;
-  const pct = Math.min(100, (cur / total) * 100);
-  document.getElementById('ytProgressFill').style.width = pct + '%';
-  document.getElementById('ytTimeCurrent').textContent  = formatTime(cur);
-  document.getElementById('ytTimeTotal').textContent    = formatTime(total);
-  document.getElementById('ytTimeSep').style.display    = '';
+  // Progress display is now only in the carousel overlay — handled by renderCarousel
+  // Nothing to update here for the hub since old progress elements were removed
 }
 
 function formatTime(secs) {
