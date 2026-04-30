@@ -861,14 +861,15 @@ localStorage.setItem('ba-smart-ads', state.smartAds);
 // Apply smart ads toggle state to UI
 const toggleBtn = document.getElementById('smartAdsToggle');
 toggleBtn.setAttribute('aria-pressed', state.smartAds);
-if (state.smartAds) {
-  document.getElementById('youtubeInput').classList.add('smart-active');
-}
 
-// Check if there's a saved YouTube URL and show hint in placeholder
-const savedYtCheck = localStorage.getItem('ba-last-yt');
-if (savedYtCheck && !state.smartAds) {
-  document.getElementById('youtubeInput').placeholder = 'paste url to override saved video...';
+// YouTube field: never pre-fill, only show smart-active dim when smart ads on
+const ytInput = document.getElementById('youtubeInput');
+ytInput.value = ''; // always empty on load
+if (state.smartAds) {
+  ytInput.classList.add('smart-active');
+  ytInput.placeholder = 'paste url to override smart ads...';
+} else {
+  ytInput.placeholder = 'https://youtube.com/watch?v=...';
 }
 
 // Render favorites dock
