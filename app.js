@@ -53,6 +53,9 @@ function startWatching(channel) {
   state.channel   = channelVal;
   state.youtubeId = ytId || '';
 
+  // Save YouTube URL for future quick-starts
+  if (ytVal) localStorage.setItem('ba-last-yt', ytVal);
+
   loadTwitch(channelVal);
   if (ytId) loadYouTube(ytId, ytVal);
 
@@ -294,13 +297,15 @@ function addFavorite() {
   saveFavorites();
   document.getElementById('favInput').value = '';
   renderFavorites();
-  checkAllLive(); // check live status for all favorites including the new one
+  renderSetupDock();
+  checkAllLive();
 }
 
 function removeFavorite(index) {
   favorites.splice(index, 1);
   saveFavorites();
   renderFavorites();
+  renderSetupDock();
 }
 
 function switchToChannel(channel) {
@@ -504,7 +509,79 @@ function renderCountdown() {
   document.getElementById('ytCountdown').textContent = `${m}:${String(s % 60).padStart(2,'0')}`;
 }
 
-// ─── Setup key handlers ───────────────────────────────────────
+// ─── Setup dock ───────────────────────────────────────────────
+function renderSetupDock() {
+  const dock     = document.getElementById('setupDock');
+  const channels = document.getElementById('setupDockChannels');
+  if (favorites.length === 0) { dock.style.display = 'none'; return; }
+
+  dock.style.display = 'flex';
+  channels.innerHTML = '';
+
+  favorites.forEach(ch => {
+    const chip = document.createElement('div');
+    chip.className = 'setup-dock-chip';
+    chip.id        = `setup-chip-${ch}`;
+    chip.innerHTML = `
+      <span class="setup-dock-chip-dot" id="setup-dot-${ch}"></span>
+      ${ch}
+    `;
+    chip.onclick = () => quickStart(ch);
+    channels.appendChild(chip);
+  });
+
+  // Check live status for dock dots
+  checkAllLiveSetup();
+}
+
+async function checkAllLiveSetup() {
+  if (favorites.length === 0) return;
+  const queries = favorites.map(ch => ({
+    operationName: 'UsersInfo',
+    variables:     { logins: [ch] },
+    query: `query UsersInfo($logins: [String!]!) { users(logins: $logins) { login stream { id } } }`,
+  }));
+  try {
+    const res  = await fetch(TWITCH_GQL, {
+      method: 'POST',
+      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
+      body: JSON.stringify(queries),
+    });
+    if (!res.ok) return;
+    const data    = await res.json();
+    const results = Array.isArray(data) ? data : [data];
+    results.forEach((item, i) => {
+      const ch     = favorites[i];
+      const isLive = !!(item?.data?.users?.[0]?.stream);
+      const dot    = document.getElementById(`setup-dot-${ch}`);
+      if (dot) dot.classList.toggle('live', isLive);
+    });
+  } catch (_) {}
+}
+
+let toastTimer = null;
+function showToast() {
+  const toast = document.getElementById('setupToast');
+  toast.style.display = 'flex';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+function quickStart(channel) {
+  const ytVal = document.getElementById('youtubeInput').value.trim();
+  // Check if youtube URL is set either in input or previously saved
+  const savedYt = localStorage.getItem('ba-last-yt') || '';
+  if (!ytVal && !savedYt) {
+    showToast();
+    return;
+  }
+  // Pre-fill the channel input and use saved YT if input is empty
+  document.getElementById('twitchInput').value   = channel;
+  if (!ytVal && savedYt) document.getElementById('youtubeInput').value = savedYt;
+  startWatching();
+}
+
+// ─── Save last YouTube URL for quick-start ────────────────────
 document.getElementById('twitchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('youtubeInput').focus();
 });
@@ -514,3 +591,11 @@ document.getElementById('youtubeInput').addEventListener('keydown', e => {
 
 // ─── Dev helpers ──────────────────────────────────────────────
 window.simulateAd = (isAd, duration) => handleAd(isAd, duration || null);
+
+// ─── Init ─────────────────────────────────────────────────────
+// Pre-fill YouTube input with last used URL
+const savedYtInit = localStorage.getItem('ba-last-yt');
+if (savedYtInit) document.getElementById('youtubeInput').value = savedYtInit;
+
+// Render favorites dock if any exist
+renderSetupDock();
