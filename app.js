@@ -723,7 +723,7 @@ function dismissExtWarning() {
 }
 
 function copyDebuggingUrl(btn) {
-  navigator.clipboard.writeText('about:debugging').then(() => {
+  navigator.clipboard.writeText('about:debugging#/runtime/this-firefox').then(() => {
     btn.textContent = '✓ copied — paste in new tab';
     setTimeout(() => { btn.textContent = 'about:debugging ↗'; }, 2500);
   });
