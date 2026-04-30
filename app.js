@@ -64,6 +64,7 @@ function startWatching(channel) {
   document.getElementById('watchScreen').style.display = 'block';
 
   window.addEventListener('message', onMessage);
+  startExtensionCheck();
 
   // Pre-fill hub YouTube input with current value
   document.getElementById('hubYtInput').value = ytVal || '';
@@ -420,9 +421,39 @@ function setLiveDot(channel, isLive) {
   if (dot) dot.title = isLive ? `${channel} is live` : `${channel} is offline`;
 }
 
-// ─── Ad handling ──────────────────────────────────────────────
+// ─── Extension handshake ──────────────────────────────────────
+// The extension fires a 'ba-ready' message when it injects.
+// If we don't hear it within 8 seconds of starting, warn the user.
+let extDetected    = false;
+let extCheckTimer  = null;
+
+function startExtensionCheck() {
+  extDetected = false;
+  clearTimeout(extCheckTimer);
+  extCheckTimer = setTimeout(() => {
+    if (!extDetected) showExtWarning();
+  }, 8000);
+}
+
+function showExtWarning() {
+  document.getElementById('extWarning').style.display = 'flex';
+}
+
+function dismissExtWarning() {
+  document.getElementById('extWarning').style.display = 'none';
+  clearTimeout(extCheckTimer);
+}
 function onMessage(e) {
   if (!e.data || typeof e.data !== 'object') return;
+
+  // Extension handshake — confirmed alive
+  if (e.data.source === 'betterads-extension' && e.data.type === 'ba-ready') {
+    extDetected = true;
+    clearTimeout(extCheckTimer);
+    document.getElementById('extWarning').style.display = 'none';
+    return;
+  }
+
   if (e.data.source !== 'betterads-extension' &&
       e.data.source !== 'gridview-extension') return;
   if (e.data.type !== 'vg-ad') return;
