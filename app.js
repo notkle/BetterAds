@@ -214,6 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const ki = document.getElementById('hubKeywordInput');
   if (ki) ki.addEventListener('keydown', e => { if (e.key === 'Enter') searchManualPlaylist(); });
 });
+
+function toggleSmartAdsHub() {
   // Keep in sync with main toggle
   toggleSmartAds();
   syncHubSmartToggle();
