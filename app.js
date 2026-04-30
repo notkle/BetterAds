@@ -397,7 +397,7 @@ function setLiveDot(channel, isLive) {
 // ─── Ad handling ──────────────────────────────────────────────
 function onMessage(e) {
   if (!e.data || typeof e.data !== 'object') return;
-  if (e.data.source !== 'bettercommercials-extension' &&
+  if (e.data.source !== 'betterads-extension' &&
       e.data.source !== 'gridview-extension') return;
   if (e.data.type !== 'vg-ad') return;
   const ch = (e.data.channel || '').toLowerCase().trim();
