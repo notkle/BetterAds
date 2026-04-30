@@ -812,6 +812,24 @@ html, body {
   font-weight: 500;
 }
 
+.ext-warning-link {
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.4);
+  border-radius: 5px;
+  color: #f5c060;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ext-warning-link:hover {
+  background: rgba(245,158,11,0.25);
+  color: #fff;
+}
+
 .ext-warning-close {
   background: none;
   border: none;
@@ -824,3 +842,258 @@ html, body {
   flex-shrink: 0;
 }
 .ext-warning-close:hover { color: #f5a623; }
+
+/* ─── Smart Ads toggle ───────────────────────────────────────── */
+.smart-ads-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(145,71,255,0.06);
+  border: 1px solid rgba(145,71,255,0.15);
+  border-radius: 8px;
+}
+
+.smart-ads-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.smart-ads-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.smart-ads-desc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.smart-toggle {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--muted2, #2e2e2e);
+  border: 1px solid var(--border2, #2a2a2a);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.25s, border-color 0.25s;
+  outline: none;
+  flex-shrink: 0;
+}
+.smart-toggle[aria-pressed="true"] {
+  background: var(--twitch);
+  border-color: var(--twitch);
+}
+
+.smart-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #555;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: left 0.22s cubic-bezier(.4,0,.2,1), background 0.2s;
+  pointer-events: none;
+}
+.smart-toggle[aria-pressed="true"] .smart-thumb {
+  left: 21px;
+  background: #fff;
+}
+
+/* Disabled YouTube group when Smart Ads is on */
+.input-group.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ─── YouTube label row with inline smart ads ────────────────── */
+.yt-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.smart-inline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.smart-inline-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+
+.smart-toggle {
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--border2);
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s, border-color 0.2s;
+  outline: none;
+  flex-shrink: 0;
+}
+.smart-toggle[aria-pressed="true"] {
+  background: var(--twitch);
+  border-color: var(--twitch);
+}
+.smart-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #555;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: left 0.2s cubic-bezier(.4,0,.2,1), background 0.2s;
+  pointer-events: none;
+}
+.smart-toggle[aria-pressed="true"] .smart-thumb {
+  left: 19px;
+  background: #fff;
+}
+
+/* Dim youtube input when smart ads is on and no override typed */
+.setup-input.smart-active {
+  opacity: 0.45;
+}
+
+/* ─── Smart Ads playlist carousel ───────────────────────────── */
+.playlist-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playlist-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0a0a12;
+  border: 1px solid var(--border);
+}
+
+.playlist-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s;
+}
+
+.playlist-nav {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.playlist-thumb-wrap:hover .playlist-nav { opacity: 1; }
+
+.playlist-arrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.playlist-arrow:hover { background: rgba(0,0,0,0.92); }
+
+.playlist-counter {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  background: rgba(0,0,0,0.65);
+  color: rgba(255,255,255,0.6);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.playlist-pick-btn-wrap {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.playlist-thumb-wrap:hover .playlist-pick-btn-wrap { opacity: 1; }
+
+.playlist-pick-btn {
+  background: rgba(145,71,255,0.85);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.playlist-pick-btn:hover { background: var(--twitch); }
+.playlist-pick-btn.picked {
+  background: #22c55e;
+}
+
+.playlist-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+  min-height: 28px;
+}
+
+.playlist-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  padding: 6px 0;
+}
+
+.playlist-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--twitch);
+  animation: blink 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
