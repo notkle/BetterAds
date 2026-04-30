@@ -683,9 +683,14 @@ function removeFavorite(index) {
 
 function switchToChannel(channel) {
   state.channel = channel;
+  state.smartAdVideoId = null;
+  playlist.videos = [];
+  playlist.index  = 0;
+  playlist.pickedIndex = null;
   loadTwitch(channel);
   document.getElementById('watchChannel').textContent = channel;
   closeHub();
+  if (state.smartAds) buildPlaylist();
 }
 
 // ─── Live status checking ─────────────────────────────────────
