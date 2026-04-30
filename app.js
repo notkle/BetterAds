@@ -551,33 +551,8 @@ function renderSetupDock() {
     channels.appendChild(chip);
   });
 
-  // Check live status for dock dots
-  checkAllLiveSetup();
-}
-
-async function checkAllLiveSetup() {
-  if (favorites.length === 0) return;
-  const queries = favorites.map(ch => ({
-    operationName: 'UsersInfo',
-    variables:     { logins: [ch] },
-    query: `query UsersInfo($logins: [String!]!) { users(logins: $logins) { login stream { id } } }`,
-  }));
-  try {
-    const res  = await fetch(TWITCH_GQL, {
-      method: 'POST',
-      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
-      body: JSON.stringify(queries),
-    });
-    if (!res.ok) return;
-    const data    = await res.json();
-    const results = Array.isArray(data) ? data : [data];
-    results.forEach((item, i) => {
-      const ch     = favorites[i];
-      const isLive = !!(item?.data?.users?.[0]?.stream);
-      const dot    = document.getElementById(`setup-dot-${ch}`);
-      if (dot) dot.classList.toggle('live', isLive);
-    });
-  } catch (_) {}
+  // Check live status using the shared checkAllLive which updates liveStatus
+  checkAllLive();
 }
 
 let toastTimer = null;
