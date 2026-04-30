@@ -2,12 +2,13 @@
 const state = {
   channel:        '',
   youtubeId:      '',
+  isLiveStream:   false, // true if YouTube URL is a live stream
   adActive:       false,
   countdownSecs:  null,
   countdownTimer: null,
   _swapped:       false,
-  ytDuration:     null,  // total seconds of YT video
-  ytCurrent:      null,  // current playback position
+  ytDuration:     null,
+  ytCurrent:      null,
   ytProgressTimer:null,
 };
 
@@ -53,7 +54,7 @@ function startWatching(channel) {
   state.youtubeId = ytId || '';
 
   loadTwitch(channelVal);
-  if (ytId) loadYouTube(ytId);
+  if (ytId) loadYouTube(ytId, ytVal);
 
   document.getElementById('watchChannel').textContent = channelVal;
   document.getElementById('setupScreen').style.display = 'none';
@@ -74,8 +75,17 @@ function loadTwitch(channel) {
     `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${location.hostname}&autoplay=true`;
 }
 
-function loadYouTube(id) {
-  state.youtubeId = id;
+function isLiveStreamUrl(url) {
+  // YouTube live URLs typically contain /live/ or have ?v= pointing to an active stream
+  // We also detect via the player's infoDelivery event (isLive flag)
+  return /youtube\.com\/live\//i.test(url) ||
+         /youtube\.com\/@[^/]+\/live/i.test(url);
+}
+
+function loadYouTube(id, originalUrl) {
+  state.youtubeId    = id;
+  // Tentative live detection from URL — confirmed later via player event
+  state.isLiveStream = originalUrl ? isLiveStreamUrl(originalUrl) : false;
   document.getElementById('youtubeFrame').src =
     `https://www.youtube.com/embed/${id}?enablejsapi=1&autoplay=0`;
   renderHubYouTube();
@@ -156,7 +166,7 @@ function saveYouTubeUrl() {
   }
   const id = extractYouTubeId(val);
   if (!id) { shake('hubYtInput'); return; }
-  loadYouTube(id);
+  loadYouTube(id, val);
   // Visual feedback
   const btn = document.querySelector('.hub-save-btn');
   btn.textContent = '✓';
@@ -194,8 +204,10 @@ window.addEventListener('message', e => {
   try {
     const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (data.event === 'infoDelivery' && data.info) {
-      if (data.info.duration)     state.ytDuration = data.info.duration;
-      if (data.info.currentTime !== undefined) state.ytCurrent = data.info.currentTime;
+      if (data.info.duration)                        state.ytDuration = data.info.duration;
+      if (data.info.currentTime !== undefined)       state.ytCurrent  = data.info.currentTime;
+      // YouTube player reports isLive in the info object
+      if (data.info.isLive !== undefined)            state.isLiveStream = !!data.info.isLive;
       updateYtProgressDisplay();
     }
   } catch (_) {}
@@ -223,14 +235,21 @@ function stopYtProgress() {
 }
 
 function updateYtProgressDisplay() {
+  if (state.isLiveStream) {
+    document.getElementById('ytProgressFill').style.width = '100%';
+    document.getElementById('ytTimeCurrent').textContent  = '● live';
+    document.getElementById('ytTimeTotal').textContent    = '';
+    document.getElementById('ytTimeSep').style.display    = 'none';
+    return;
+  }
   const cur   = state.ytCurrent;
   const total = state.ytDuration;
   if (cur === null || total === null || total === 0) return;
-
   const pct = Math.min(100, (cur / total) * 100);
   document.getElementById('ytProgressFill').style.width = pct + '%';
   document.getElementById('ytTimeCurrent').textContent  = formatTime(cur);
   document.getElementById('ytTimeTotal').textContent    = formatTime(total);
+  document.getElementById('ytTimeSep').style.display    = '';
 }
 
 function formatTime(secs) {
@@ -397,6 +416,15 @@ function showYouTube() {
   document.getElementById('ytOverlay').classList.add('visible');
   document.getElementById('ytReturning').style.display = 'none';
   ytCommand('playVideo');
+
+  // If it's a livestream, seek to the live edge after a short delay
+  // (player needs a moment to start before seekTo works)
+  if (state.isLiveStream) {
+    setTimeout(() => {
+      ytCommandWithArgs('seekTo', [999999, true]);
+    }, 800);
+  }
+
   startYtProgress();
 }
 
@@ -427,6 +455,14 @@ function ytCommand(func) {
   try {
     document.getElementById('youtubeFrame').contentWindow.postMessage(
       JSON.stringify({ event: 'command', func, args: [] }), '*'
+    );
+  } catch (_) {}
+}
+
+function ytCommandWithArgs(func, args) {
+  try {
+    document.getElementById('youtubeFrame').contentWindow.postMessage(
+      JSON.stringify({ event: 'command', func, args }), '*'
     );
   } catch (_) {}
 }
