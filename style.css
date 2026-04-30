@@ -1079,3 +1079,69 @@ html, body {
   animation: blink 1s ease-in-out infinite;
   flex-shrink: 0;
 }
+
+/* ─── Hub section header with smart toggle ───────────────────── */
+.hub-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hub-smart-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hub-smart-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* Smart ads active — purple border on carousel */
+.playlist-thumb-wrap.smart-active-border {
+  border-color: var(--twitch);
+  box-shadow: 0 0 0 1px var(--twitch);
+}
+
+/* Grayout inactive section */
+.hub-section-grayed {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.hub-smart-empty {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* ─── Playlist shuffle button ────────────────────────────────── */
+.playlist-shuffle-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.3s;
+}
+.playlist-shuffle-btn:hover {
+  background: rgba(145,71,255,0.5);
+  border-color: var(--twitch);
+  color: #fff;
+}
+.playlist-shuffle-btn.spinning {
+  transform: rotate(360deg);
+}
