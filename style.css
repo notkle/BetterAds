@@ -1168,3 +1168,34 @@ html, body {
   pointer-events: none;
   user-select: none;
 }
+
+/* ─── Manual keyword search ──────────────────────────────────── */
+.hub-keyword-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.hub-search-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--twitch);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.hub-search-btn:hover { opacity: 0.8; }
+
+.hub-keyword-hint {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
