@@ -1,8 +1,13 @@
+// ─── Config ───────────────────────────────────────────────────
+const WORKER_URL       = 'https://betterads-proxy.sotempyhehe.workers.dev';
+const TWITCH_GQL       = 'https://gql.twitch.tv/gql';
+const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
+
 // ─── State ────────────────────────────────────────────────────
 const state = {
   channel:        '',
   youtubeId:      '',
-  isLiveStream:   false, // true if YouTube URL is a live stream
+  isLiveStream:   false,
   adActive:       false,
   countdownSecs:  null,
   countdownTimer: null,
@@ -10,10 +15,13 @@ const state = {
   ytDuration:     null,
   ytCurrent:      null,
   ytProgressTimer:null,
+  smartAds:       true,  // default ON
+  smartAdVideoId: null,
 };
 
 // ─── Favorites (localStorage) ─────────────────────────────────
 let favorites = JSON.parse(localStorage.getItem('bc-favorites') || '[]');
+const liveStatus = {};
 
 function saveFavorites() {
   localStorage.setItem('bc-favorites', JSON.stringify(favorites));
@@ -37,24 +45,275 @@ function extractYouTubeId(url) {
   return null;
 }
 
+// ─── Smart Ads playlist ───────────────────────────────────────
+const playlist = {
+  videos:      [], // [{id, title, thumbnail}]
+  index:       0,  // currently previewed index
+  pickedIndex: null, // user-selected override
+  refreshTimer: null,
+};
+
+async function buildPlaylist() {
+  if (!state.smartAds) return;
+
+  const carousel = document.getElementById('playlistCarousel');
+  const loading  = document.getElementById('playlistLoading');
+  if (carousel) carousel.style.display = 'flex';
+  if (loading)  loading.style.display  = 'flex';
+
+  const streamInfo = await fetchStreamGame(state.channel);
+  let query = 'gaming highlights';
+  if (streamInfo?.game) query = `${streamInfo.game} highlights`;
+
+  const res = await searchYouTubeViaWorker(query, 5);
+  if (loading) loading.style.display = 'none';
+
+  if (!res || !res.length) return;
+
+  playlist.videos      = res;
+  playlist.index       = 0;
+  playlist.pickedIndex = null;
+
+  renderCarousel();
+
+  // Refresh playlist every 10 minutes
+  if (playlist.refreshTimer) clearInterval(playlist.refreshTimer);
+  playlist.refreshTimer = setInterval(buildPlaylist, 10 * 60 * 1000);
+}
+
+function renderCarousel() {
+  const videos = playlist.videos;
+  if (!videos.length) return;
+
+  const v       = videos[playlist.index];
+  const thumb   = document.getElementById('playlistThumb');
+  const title   = document.getElementById('playlistTitle');
+  const counter = document.getElementById('playlistCounter');
+  const pickBtn = document.querySelector('.playlist-pick-btn');
+
+  if (thumb)   { thumb.src = v.thumbnail; thumb.alt = v.title; }
+  if (title)   title.textContent = v.title;
+  if (counter) counter.textContent = `${playlist.index + 1} / ${videos.length}`;
+  if (pickBtn) {
+    const isPicked = playlist.pickedIndex === playlist.index;
+    pickBtn.textContent = isPicked ? '✓ selected' : '✓ use this one';
+    pickBtn.classList.toggle('picked', isPicked);
+  }
+}
+
+function carouselPrev() {
+  if (!playlist.videos.length) return;
+  playlist.index = (playlist.index - 1 + playlist.videos.length) % playlist.videos.length;
+  if (state._swapped && state.smartAds) {
+    playlist.pickedIndex = playlist.index;
+    state.smartAdVideoId = null;
+    loadSmartAd();
+  }
+  renderCarousel();
+}
+
+function carouselNext() {
+  if (!playlist.videos.length) return;
+  playlist.index = (playlist.index + 1) % playlist.videos.length;
+  if (state._swapped && state.smartAds) {
+    playlist.pickedIndex = playlist.index;
+    state.smartAdVideoId = null;
+    loadSmartAd();
+  }
+  renderCarousel();
+}
+
+function pickCarouselVideo() {
+  playlist.pickedIndex = playlist.index;
+  // Clear current video so picked one loads fresh next ad break
+  state.smartAdVideoId = null;
+  renderCarousel();
+}
+
+function getPlaylistVideo() {
+  // Return user-picked video, or random from playlist
+  if (playlist.pickedIndex !== null && playlist.videos[playlist.pickedIndex]) {
+    return playlist.videos[playlist.pickedIndex];
+  }
+  if (!playlist.videos.length) return null;
+  return playlist.videos[Math.floor(Math.random() * playlist.videos.length)];
+}
+
+function renderHubYouTube() {
+  const carousel   = document.getElementById('playlistCarousel');
+  const thumbWrap  = document.getElementById('ytThumbWrap');
+  const hubYtEdit  = document.getElementById('hubYtEdit');
+
+  if (state.smartAds) {
+    if (carousel)  carousel.style.display  = playlist.videos.length ? 'flex' : 'none';
+    if (thumbWrap) thumbWrap.style.display  = 'none';
+    if (hubYtEdit) hubYtEdit.style.display  = 'none';
+  } else {
+    if (carousel)  carousel.style.display  = 'none';
+    if (thumbWrap) thumbWrap.style.display  = 'block';
+    if (hubYtEdit) hubYtEdit.style.display  = 'flex';
+
+    const thumb   = document.getElementById('ytThumb');
+    const noVideo = document.getElementById('ytNoVideo');
+    const overlay = document.getElementById('ytThumbOverlay');
+    if (!state.youtubeId) {
+      if (thumb)   thumb.style.display   = 'none';
+      if (overlay) overlay.style.display = 'none';
+      if (noVideo) noVideo.style.display = 'flex';
+    } else {
+      if (noVideo) noVideo.style.display = 'none';
+      if (thumb)   { thumb.src = `https://img.youtube.com/vi/${state.youtubeId}/mqdefault.jpg`; thumb.style.display = 'block'; }
+      if (overlay) overlay.style.display = 'block';
+    }
+  }
+}
+
+// ─── Smart Ads ────────────────────────────────────────────────
+// On ad start: fetch current stream game via Twitch GQL,
+// search YouTube via Cloudflare Worker proxy, load automatically.
+
+function toggleSmartAds() {
+  state.smartAds = !state.smartAds;
+  const btn = document.getElementById('smartAdsToggle');
+  btn.setAttribute('aria-pressed', state.smartAds);
+  localStorage.setItem('ba-smart-ads', state.smartAds);
+
+  // Dim/undim the YouTube input
+  const input = document.getElementById('youtubeInput');
+  if (state.smartAds && !input.value.trim()) {
+    input.classList.add('smart-active');
+    input.placeholder = 'paste url to override smart ads...';
+  } else {
+    input.classList.remove('smart-active');
+    input.placeholder = 'https://youtube.com/watch?v=...';
+  }
+}
+
+// Dim input if smart ads is on and no value typed
+document.getElementById('youtubeInput').addEventListener('input', () => {
+  const input = document.getElementById('youtubeInput');
+  if (state.smartAds) {
+    input.classList.toggle('smart-active', !input.value.trim());
+  }
+});
+
+async function fetchStreamGame(channel) {
+  try {
+    const res = await fetch(TWITCH_GQL, {
+      method:  'POST',
+      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{
+        operationName: 'UsersInfo',
+        variables:     { logins: [channel] },
+        query: `query UsersInfo($logins: [String!]!) {
+          users(logins: $logins) {
+            login
+            stream { title game { name } }
+          }
+        }`,
+      }]),
+    });
+    if (!res.ok) return null;
+    const data   = await res.json();
+    const stream = data[0]?.data?.users?.[0]?.stream;
+    return stream ? { game: stream.game?.name || '', title: stream.title || '' } : null;
+  } catch (_) { return null; }
+}
+
+async function searchYouTubeViaWorker(query, maxResults = 5) {
+  try {
+    const res  = await fetch(`${WORKER_URL}?q=${encodeURIComponent(query)}&max=${maxResults}`);
+    if (!res.ok) return null;
+    const data  = await res.json();
+    const items = data.items?.filter(i => i.id?.videoId);
+    if (!items?.length) return null;
+    return items.map(i => ({
+      id:        i.id.videoId,
+      title:     i.snippet?.title || '',
+      thumbnail: i.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
+    }));
+  } catch (_) { return null; }
+}
+
+async function loadSmartAd() {
+  // If a video is already loaded from a previous ad break, just resume it
+  if (state.smartAdVideoId) {
+    console.log('[BetterAds] Smart Ads resuming:', state.smartAdVideoId);
+    ytCommand('playVideo');
+    startYtProgress();
+    const label = document.getElementById('ytAdLabel');
+    if (label) {
+      const current = playlist.videos.find(v => v.id === state.smartAdVideoId);
+      if (current) label.textContent = `▶ ${current.title.slice(0, 45)}${current.title.length > 45 ? '…' : ''}`;
+    }
+    return;
+  }
+
+  // No video loaded yet — pick from playlist or search on the fly
+  let video = getPlaylistVideo();
+
+  if (!video) {
+    const countdownEl = document.getElementById('ytCountdown');
+    if (countdownEl) countdownEl.textContent = 'finding...';
+    const streamInfo = await fetchStreamGame(state.channel);
+    const query = streamInfo?.game ? `${streamInfo.game} highlights` : 'gaming highlights';
+    const results = await searchYouTubeViaWorker(query, 5);
+    if (countdownEl) countdownEl.textContent = '';
+    if (results?.length) {
+      playlist.videos = results;
+      video = results[0];
+    }
+  }
+
+  if (!video) {
+    // Final fallback to saved YouTube URL
+    const savedYt = localStorage.getItem('ba-last-yt');
+    if (savedYt) {
+      const id = extractYouTubeId(savedYt);
+      if (id) { state.smartAdVideoId = id; loadYouTube(id, savedYt); }
+    }
+    return;
+  }
+
+  console.log('[BetterAds] Smart Ads loading:', video.title);
+  state.smartAdVideoId = video.id;
+  loadYouTube(video.id, '');
+  startYtProgress();
+
+  const label = document.getElementById('ytAdLabel');
+  if (label) label.textContent = `▶ ${video.title.slice(0, 45)}${video.title.length > 45 ? '…' : ''}`;
+}
+
+function clearSmartAd() {
+  // Restore label
+  const label = document.getElementById('ytAdLabel');
+  if (label) label.textContent = 'ad break';
+  state.smartAdVideoId = null;
+  // Blank the frame so it stops playing
+  document.getElementById('youtubeFrame').src = 'about:blank';
+}
+
 // ─── Setup ────────────────────────────────────────────────────
 function startWatching(channel) {
   const channelVal = (channel || document.getElementById('twitchInput').value.trim()).toLowerCase();
-  const ytVal      = document.getElementById('youtubeInput')?.value.trim() || state.youtubeId;
-
   if (!channelVal) { shake('twitchInput'); return; }
 
+  // YouTube: input field overrides stored URL, smart ads overrides both
+  const inputVal = document.getElementById('youtubeInput')?.value.trim() || '';
+  const savedYt  = localStorage.getItem('ba-last-yt') || '';
+  const ytVal    = inputVal || savedYt; // input takes priority over saved
+
   let ytId = null;
-  if (ytVal) {
+  if (!state.smartAds && ytVal) {
     ytId = extractYouTubeId(ytVal);
-    if (!ytId && ytVal) { shake('youtubeInput'); return; }
+    if (!ytId && inputVal) { shake('youtubeInput'); return; }
   }
+
+  // Save override URL if user typed one
+  if (inputVal) localStorage.setItem('ba-last-yt', inputVal);
 
   state.channel   = channelVal;
   state.youtubeId = ytId || '';
-
-  // Save YouTube URL for future quick-starts
-  if (ytVal) localStorage.setItem('ba-last-yt', ytVal);
 
   loadTwitch(channelVal);
   if (ytId) loadYouTube(ytId, ytVal);
@@ -66,12 +325,11 @@ function startWatching(channel) {
   window.addEventListener('message', onMessage);
   startExtensionCheck();
 
-  // Pre-fill hub YouTube input with current value
   document.getElementById('hubYtInput').value = ytVal || '';
-
   renderHubYouTube();
   renderFavorites();
   startLivePolling();
+  if (state.smartAds) buildPlaylist();
 }
 
 function loadTwitch(channel) {
@@ -80,15 +338,12 @@ function loadTwitch(channel) {
 }
 
 function isLiveStreamUrl(url) {
-  // YouTube live URLs typically contain /live/ or have ?v= pointing to an active stream
-  // We also detect via the player's infoDelivery event (isLive flag)
   return /youtube\.com\/live\//i.test(url) ||
          /youtube\.com\/@[^/]+\/live/i.test(url);
 }
 
 function loadYouTube(id, originalUrl) {
   state.youtubeId    = id;
-  // Tentative live detection from URL — confirmed later via player event
   state.isLiveStream = originalUrl ? isLiveStreamUrl(originalUrl) : false;
   document.getElementById('youtubeFrame').src =
     `https://www.youtube.com/embed/${id}?enablejsapi=1&autoplay=0`;
@@ -117,10 +372,11 @@ function goBack() {
   document.getElementById('youtubeFrame').src = 'about:blank';
   hideYouTube(false);
   window.removeEventListener('message', onMessage);
-  state.adActive  = false;
-  state._swapped  = false;
-  state.channel   = '';
-  state.youtubeId = '';
+  state.adActive       = false;
+  state._swapped       = false;
+  state.channel        = '';
+  state.youtubeId      = '';
+  state.smartAdVideoId = null;
   closeHub();
   document.getElementById('setupScreen').style.display = 'flex';
   document.getElementById('watchScreen').style.display = 'none';
@@ -162,7 +418,6 @@ function cancelHubClose() {
 function saveYouTubeUrl() {
   const val = document.getElementById('hubYtInput').value.trim();
   if (!val) {
-    // Clear YouTube
     state.youtubeId = '';
     document.getElementById('youtubeFrame').src = 'about:blank';
     renderHubYouTube();
@@ -171,7 +426,6 @@ function saveYouTubeUrl() {
   const id = extractYouTubeId(val);
   if (!id) { shake('hubYtInput'); return; }
   loadYouTube(id, val);
-  // Visual feedback
   const btn = document.querySelector('.hub-save-btn');
   btn.textContent = '✓';
   setTimeout(() => { btn.textContent = 'save'; }, 1500);
@@ -186,9 +440,17 @@ function renderHubYouTube() {
   const noVideo = document.getElementById('ytNoVideo');
   const overlay = document.getElementById('ytThumbOverlay');
 
-  if (!state.youtubeId) {
+  if (!state.youtubeId && !state.smartAds) {
     thumb.style.display   = 'none';
     overlay.style.display = 'none';
+    noVideo.style.display = 'flex';
+    return;
+  }
+
+  if (state.smartAds) {
+    thumb.style.display   = 'none';
+    overlay.style.display = 'none';
+    noVideo.textContent   = 'smart ads active — auto-selected';
     noVideo.style.display = 'flex';
     return;
   }
@@ -200,29 +462,32 @@ function renderHubYouTube() {
 }
 
 // ─── YouTube progress tracking ────────────────────────────────
-// YouTube's postMessage API returns state via 'message' events
-// We poll by sending getVideoData / getCurrentTime requests
-
 window.addEventListener('message', e => {
   if (!e.data) return;
   try {
     const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (data.event === 'infoDelivery' && data.info) {
-      if (data.info.duration)                        state.ytDuration = data.info.duration;
-      if (data.info.currentTime !== undefined)       state.ytCurrent  = data.info.currentTime;
-      // YouTube player reports isLive in the info object
-      if (data.info.isLive !== undefined)            state.isLiveStream = !!data.info.isLive;
+      if (data.info.duration)                  state.ytDuration   = data.info.duration;
+      if (data.info.currentTime !== undefined) state.ytCurrent    = data.info.currentTime;
+      if (data.info.isLive !== undefined)      state.isLiveStream = !!data.info.isLive;
       updateYtProgressDisplay();
+
+      // playerState 0 = video ended — auto advance playlist
+      if (data.info.playerState === 0 && state.smartAds && state._swapped) {
+        console.log('[BetterAds] Video ended — advancing to next');
+        state.smartAdVideoId = null;
+        playlist.pickedIndex = null;
+        playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
+        loadSmartAd();
+      }
     }
   } catch (_) {}
 });
 
 function startYtProgress() {
   stopYtProgress();
-  // Request info every 2 seconds
   state.ytProgressTimer = setInterval(() => {
     ytCommand('getVideoData');
-    // getCurrentTime via listening event — we poke the iframe
     try {
       document.getElementById('youtubeFrame').contentWindow.postMessage(
         JSON.stringify({ event: 'listening' }), '*'
@@ -259,18 +524,15 @@ function updateYtProgressDisplay() {
 function formatTime(secs) {
   const s = Math.floor(secs);
   const m = Math.floor(s / 60);
-  const r = String(s % 60).padStart(2, '0');
-  return `${m}:${r}`;
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 
 // ─── Favorites ────────────────────────────────────────────────
-const liveStatus = {}; // channel → true/false
-
 function sortedFavorites() {
   return [...favorites].sort((a, b) => {
     const aLive = liveStatus[a] ? 1 : 0;
     const bLive = liveStatus[b] ? 1 : 0;
-    return bLive - aLive; // live first
+    return bLive - aLive;
   });
 }
 
@@ -284,7 +546,7 @@ function renderFavorites() {
   }
 
   sortedFavorites().forEach(ch => {
-    const i    = favorites.indexOf(ch); // original index for remove
+    const i    = favorites.indexOf(ch);
     const item = document.createElement('div');
     item.className = 'fav-item';
     item.id        = `fav-${ch}`;
@@ -332,11 +594,6 @@ document.getElementById('favInput').addEventListener('keydown', e => {
 });
 
 // ─── Live status checking ─────────────────────────────────────
-// Uses Twitch's internal GraphQL endpoint with their hardcoded
-// public Client ID. Uses inline queries (no persisted hash) for stability.
-
-const TWITCH_GQL       = 'https://gql.twitch.tv/gql';
-const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 let liveTimer = null;
 
 function startLivePolling() {
@@ -352,80 +609,44 @@ function stopLivePolling() {
 
 async function checkAllLive() {
   if (favorites.length === 0) return;
-
-  // One query per channel, batched into a single POST array
   const queries = favorites.map(ch => ({
     operationName: 'UsersInfo',
     variables:     { logins: [ch] },
-    query: `
-      query UsersInfo($logins: [String!]!) {
-        users(logins: $logins) {
-          login
-          stream {
-            id
-          }
-        }
-      }
-    `,
+    query: `query UsersInfo($logins: [String!]!) { users(logins: $logins) { login stream { id } } }`,
   }));
-
   try {
     const res = await fetch(TWITCH_GQL, {
       method:  'POST',
-      headers: {
-        'Client-ID':    TWITCH_CLIENT_ID,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
       body: JSON.stringify(queries),
     });
-
-    if (!res.ok) {
-      console.warn('[BC] GQL live check failed:', res.status);
-      return;
-    }
-
+    if (!res.ok) { console.warn('[BC] GQL live check failed:', res.status); return; }
     const data    = await res.json();
     const results = Array.isArray(data) ? data : [data];
-
     results.forEach((item, i) => {
-      const ch      = favorites[i];
-      const users   = item?.data?.users;
-      const isLive  = Array.isArray(users) && users.length > 0 && !!users[0]?.stream;
+      const ch     = favorites[i];
+      const isLive = !!(item?.data?.users?.[0]?.stream);
       setLiveDot(ch, isLive);
     });
-
-  } catch (err) {
-    console.warn('[BC] GQL live check error:', err);
-  }
+  } catch (err) { console.warn('[BC] GQL live check error:', err); }
 }
 
 function setLiveDot(channel, isLive) {
   const changed = liveStatus[channel] !== isLive;
   liveStatus[channel] = isLive;
 
-  // Update hub dot directly if it exists
-  const dot = document.getElementById(`fav-dot-${channel}`);
-  if (dot) dot.classList.toggle('live', isLive);
-
-  // Update setup dock dot
+  const dot      = document.getElementById(`fav-dot-${channel}`);
   const setupDot = document.getElementById(`setup-dot-${channel}`);
+  if (dot)      dot.classList.toggle('live', isLive);
   if (setupDot) setupDot.classList.toggle('live', isLive);
 
-  // Re-render to resort if live status changed
-  if (changed) {
-    renderFavorites();
-    renderSetupDock();
-  }
-
-  // Update tooltip
+  if (changed) { renderFavorites(); renderSetupDock(); }
   if (dot) dot.title = isLive ? `${channel} is live` : `${channel} is offline`;
 }
 
 // ─── Extension handshake ──────────────────────────────────────
-// The extension fires a 'ba-ready' message when it injects.
-// If we don't hear it within 8 seconds of starting, warn the user.
-let extDetected    = false;
-let extCheckTimer  = null;
+let extDetected   = false;
+let extCheckTimer = null;
 
 function startExtensionCheck() {
   extDetected = false;
@@ -443,10 +664,18 @@ function dismissExtWarning() {
   document.getElementById('extWarning').style.display = 'none';
   clearTimeout(extCheckTimer);
 }
+
+function copyDebuggingUrl(btn) {
+  navigator.clipboard.writeText('about:debugging').then(() => {
+    btn.textContent = '✓ copied — paste in new tab';
+    setTimeout(() => { btn.textContent = 'about:debugging ↗'; }, 2500);
+  });
+}
+
+// ─── Message handler ──────────────────────────────────────────
 function onMessage(e) {
   if (!e.data || typeof e.data !== 'object') return;
 
-  // Extension handshake — confirmed alive
   if (e.data.source === 'betterads-extension' && e.data.type === 'ba-ready') {
     extDetected = true;
     clearTimeout(extCheckTimer);
@@ -462,6 +691,7 @@ function onMessage(e) {
   handleAd(!!e.data.active, e.data.duration || null);
 }
 
+// ─── Ad handling ──────────────────────────────────────────────
 function handleAd(isAd, duration) {
   if (state.adActive === isAd) {
     if (isAd && duration) startCountdown(duration);
@@ -469,36 +699,40 @@ function handleAd(isAd, duration) {
   }
   state.adActive = isAd;
   if (isAd) {
-    showYouTube();
-    if (duration) startCountdown(duration);
+    showYouTube(duration);
   } else {
     returnToTwitch();
   }
 }
 
-function showYouTube() {
-  if (!state.youtubeId) return;
+async function showYouTube(duration) {
   state._swapped = true;
   document.getElementById('ytOverlay').classList.add('visible');
   document.getElementById('ytReturning').style.display = 'none';
-  ytCommand('playVideo');
+  if (duration) startCountdown(duration);
 
-  // If it's a livestream, seek to the live edge after a short delay
-  // (player needs a moment to start before seekTo works)
-  if (state.isLiveStream) {
-    setTimeout(() => {
-      ytCommandWithArgs('seekTo', [999999, true]);
-    }, 800);
+  if (state.smartAds) {
+    // Smart Ads: search for a contextual video
+    await loadSmartAd();
+  } else {
+    if (!state.youtubeId) return;
+    ytCommand('playVideo');
+    if (state.isLiveStream) {
+      setTimeout(() => ytCommandWithArgs('seekTo', [999999, true]), 800);
+    }
+    startYtProgress();
   }
-
-  startYtProgress();
 }
 
 function returnToTwitch() {
   if (!state._swapped) return;
   document.getElementById('ytReturning').style.display = 'block';
   setTimeout(() => {
-    ytCommand('pauseVideo');
+    if (state.smartAds) {
+      clearSmartAd();
+    } else {
+      ytCommand('pauseVideo');
+    }
     stopYtProgress();
     const overlay = document.getElementById('ytOverlay');
     overlay.style.transition = 'opacity 0.6s ease';
@@ -541,9 +775,8 @@ function startCountdown(seconds) {
   state.countdownTimer = setInterval(() => {
     state.countdownSecs--;
     renderCountdown();
-    if (state.countdownSecs <= 3 && state.adActive) {
+    if (state.countdownSecs <= 3 && state.adActive)
       document.getElementById('ytReturning').style.display = 'block';
-    }
     if (state.countdownSecs <= 0) clearCountdown();
   }, 1000);
 }
@@ -582,7 +815,6 @@ function renderSetupDock() {
     channels.appendChild(chip);
   });
 
-  // Check live status using the shared checkAllLive which updates liveStatus
   checkAllLive();
 }
 
@@ -595,20 +827,21 @@ function showToast() {
 }
 
 function quickStart(channel) {
-  const ytVal = document.getElementById('youtubeInput').value.trim();
-  // Check if youtube URL is set either in input or previously saved
-  const savedYt = localStorage.getItem('ba-last-yt') || '';
-  if (!ytVal && !savedYt) {
-    showToast();
+  // Smart ads mode — no YouTube needed
+  if (state.smartAds) {
+    document.getElementById('twitchInput').value = channel;
+    startWatching();
     return;
   }
-  // Pre-fill the channel input and use saved YT if input is empty
-  document.getElementById('twitchInput').value   = channel;
+  const ytVal   = document.getElementById('youtubeInput').value.trim();
+  const savedYt = localStorage.getItem('ba-last-yt') || '';
+  if (!ytVal && !savedYt) { showToast(); return; }
+  document.getElementById('twitchInput').value = channel;
   if (!ytVal && savedYt) document.getElementById('youtubeInput').value = savedYt;
   startWatching();
 }
 
-// ─── Save last YouTube URL for quick-start ────────────────────
+// ─── Key handlers ─────────────────────────────────────────────
 document.getElementById('twitchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('youtubeInput').focus();
 });
@@ -620,9 +853,23 @@ document.getElementById('youtubeInput').addEventListener('keydown', e => {
 window.simulateAd = (isAd, duration) => handleAd(isAd, duration || null);
 
 // ─── Init ─────────────────────────────────────────────────────
-// Pre-fill YouTube input with last used URL
-const savedYtInit = localStorage.getItem('ba-last-yt');
-if (savedYtInit) document.getElementById('youtubeInput').value = savedYtInit;
+// Restore smart ads preference — default ON if never set
+const savedSmartAds = localStorage.getItem('ba-smart-ads');
+state.smartAds = savedSmartAds === null ? true : savedSmartAds === 'true';
+localStorage.setItem('ba-smart-ads', state.smartAds);
 
-// Render favorites dock if any exist
+// Apply smart ads toggle state to UI
+const toggleBtn = document.getElementById('smartAdsToggle');
+toggleBtn.setAttribute('aria-pressed', state.smartAds);
+if (state.smartAds) {
+  document.getElementById('youtubeInput').classList.add('smart-active');
+}
+
+// Check if there's a saved YouTube URL and show hint in placeholder
+const savedYtCheck = localStorage.getItem('ba-last-yt');
+if (savedYtCheck && !state.smartAds) {
+  document.getElementById('youtubeInput').placeholder = 'paste url to override saved video...';
+}
+
+// Render favorites dock
 renderSetupDock();
