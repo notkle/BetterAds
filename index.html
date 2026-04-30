@@ -112,50 +112,70 @@
 
         <!-- YouTube section -->
         <div class="hub-section">
-          <div class="hub-section-label">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff4444"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-            ad break video
-          </div>
-
-          <!-- Smart Ads playlist carousel -->
-          <div class="playlist-carousel" id="playlistCarousel" style="display:none">
-            <div class="playlist-thumb-wrap">
-              <img class="playlist-thumb" id="playlistThumb" />
-              <div class="playlist-nav">
-                <button class="playlist-arrow" onclick="carouselPrev()">&#8592;</button>
-                <button class="playlist-arrow" onclick="carouselNext()">&#8594;</button>
-              </div>
-              <div class="playlist-counter" id="playlistCounter">1 / 5</div>
-              <div class="playlist-pick-btn-wrap">
-                <button class="playlist-pick-btn" onclick="pickCarouselVideo()">✓ use this one</button>
-              </div>
+          <div class="hub-section-header">
+            <div class="hub-section-label">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff4444"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              ad break video
             </div>
-            <div class="playlist-title" id="playlistTitle"></div>
-            <div class="playlist-loading" id="playlistLoading" style="display:none">
-              <span class="playlist-loading-dot"></span>
-              finding videos...
+            <div class="hub-smart-toggle-wrap">
+              <span class="hub-smart-label">smart ads</span>
+              <button class="smart-toggle" id="hubSmartToggle" aria-pressed="true" onclick="toggleSmartAdsHub()">
+                <span class="smart-thumb"></span>
+              </button>
             </div>
           </div>
 
-          <!-- Manual YouTube (when smart ads off) -->
-          <div class="yt-thumb-wrap" id="ytThumbWrap" style="display:none">
-            <div class="yt-no-video" id="ytNoVideo">no video set</div>
-            <img class="yt-thumb" id="ytThumb" style="display:none" />
-            <div class="yt-thumb-overlay" id="ytThumbOverlay" style="display:none">
-              <div class="yt-progress-bar">
-                <div class="yt-progress-fill" id="ytProgressFill"></div>
+          <!-- Smart Ads section -->
+          <div id="hubSmartSection">
+            <div class="playlist-carousel" id="playlistCarousel" style="display:none">
+              <div class="playlist-thumb-wrap" id="playlistThumbWrap">
+                <img class="playlist-thumb" id="playlistThumb" />
+                <div class="playlist-nav">
+                  <button class="playlist-arrow" onclick="carouselPrev()">&#8592;</button>
+                  <button class="playlist-arrow" onclick="carouselNext()">&#8594;</button>
+                </div>
+                <div class="playlist-counter" id="playlistCounter">1 / 5</div>
+                <button class="playlist-shuffle-btn" onclick="shufflePlaylist()" title="shuffle">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 3 21 3 21 8"/><polyline points="4 20 21 3"/>
+                    <polyline points="21 16 21 21 16 21"/><polyline points="15 15 21 21"/>
+                  </svg>
+                </button>
+                <div class="playlist-pick-btn-wrap">
+                  <button class="playlist-pick-btn" onclick="pickCarouselVideo()">&#10003; use this one</button>
+                </div>
               </div>
-              <div class="yt-time-row">
-                <span class="yt-time-current" id="ytTimeCurrent">0:00</span>
-                <span class="yt-time-sep" id="ytTimeSep">/</span>
-                <span class="yt-time-total" id="ytTimeTotal">--:--</span>
+              <div class="playlist-title" id="playlistTitle"></div>
+              <div class="playlist-loading" id="playlistLoading" style="display:none">
+                <span class="playlist-loading-dot"></span>
+                finding videos...
               </div>
+            </div>
+            <div class="hub-smart-empty" id="hubSmartEmpty" style="display:none">
+              <span>start watching to load playlist</span>
             </div>
           </div>
 
-          <div class="hub-yt-edit" id="hubYtEdit">
-            <input class="hub-input" id="hubYtInput" type="text" placeholder="paste youtube url..." spellcheck="false" />
-            <button class="hub-save-btn" onclick="saveYouTubeUrl()">save</button>
+          <!-- Manual YouTube section -->
+          <div id="hubManualSection">
+            <div class="yt-thumb-wrap" id="ytThumbWrap">
+              <div class="yt-no-video" id="ytNoVideo">no video set</div>
+              <img class="yt-thumb" id="ytThumb" style="display:none" />
+              <div class="yt-thumb-overlay" id="ytThumbOverlay" style="display:none">
+                <div class="yt-progress-bar">
+                  <div class="yt-progress-fill" id="ytProgressFill"></div>
+                </div>
+                <div class="yt-time-row">
+                  <span class="yt-time-current" id="ytTimeCurrent">0:00</span>
+                  <span class="yt-time-sep" id="ytTimeSep">/</span>
+                  <span class="yt-time-total" id="ytTimeTotal">--:--</span>
+                </div>
+              </div>
+            </div>
+            <div class="hub-yt-edit" id="hubYtEdit">
+              <input class="hub-input" id="hubYtInput" type="text" placeholder="paste youtube url..." spellcheck="false" />
+              <button class="hub-save-btn" onclick="saveYouTubeUrl()">save</button>
+            </div>
           </div>
         </div>
 
@@ -186,7 +206,7 @@
 
     <!-- Minimal top bar (fades in on hover) -->
     <div class="watch-bar" id="watchBar">
-      <div class="watch-brand">BC</div>
+      <div class="watch-brand">BA</div>
       <div class="watch-channel" id="watchChannel"></div>
     </div>
 
