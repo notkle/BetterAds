@@ -179,7 +179,41 @@ function getPlaylistVideo() {
   return playlist.videos[Math.floor(Math.random() * playlist.videos.length)];
 }
 
-function toggleSmartAdsHub() {
+async function searchManualPlaylist() {
+  const input = document.getElementById('hubKeywordInput');
+  const query = input?.value.trim();
+  if (!query) return;
+
+  // Store keywords for use during ad breaks
+  localStorage.setItem('ba-manual-keywords', query);
+
+  const loading = document.getElementById('playlistLoading');
+  const carousel = document.getElementById('playlistCarousel');
+  if (carousel) carousel.style.display = 'flex';
+  if (loading)  loading.style.display  = 'flex';
+
+  const res = await searchYouTubeViaWorker(query, 5);
+  if (loading) loading.style.display = 'none';
+
+  if (!res?.length) {
+    if (loading) loading.textContent = 'no results found';
+    return;
+  }
+
+  playlist.videos      = res;
+  playlist.index       = 0;
+  playlist.pickedIndex = null;
+  state.smartAdVideoId = null;
+
+  renderCarousel();
+  renderHubYouTube();
+}
+
+// Allow Enter key in keyword input
+document.addEventListener('DOMContentLoaded', () => {
+  const ki = document.getElementById('hubKeywordInput');
+  if (ki) ki.addEventListener('keydown', e => { if (e.key === 'Enter') searchManualPlaylist(); });
+});
   // Keep in sync with main toggle
   toggleSmartAds();
   syncHubSmartToggle();
@@ -199,11 +233,10 @@ function renderHubYouTube() {
   const thumbWrap     = document.getElementById('playlistThumbWrap');
 
   if (state.smartAds) {
-    // Smart section active, manual grayed
     if (smartSection)  smartSection.classList.remove('hub-section-grayed');
     if (manualSection) manualSection.classList.add('hub-section-grayed');
+    if (thumbWrap)     thumbWrap.classList.add('smart-active-border');
 
-    // Show carousel or empty state
     if (playlist.videos.length) {
       if (carousel)   carousel.style.display  = 'flex';
       if (smartEmpty) smartEmpty.style.display = 'none';
@@ -211,29 +244,17 @@ function renderHubYouTube() {
       if (carousel)   carousel.style.display  = 'none';
       if (smartEmpty) smartEmpty.style.display = 'block';
     }
-
-    // Purple border on active carousel
-    if (thumbWrap) thumbWrap.classList.add('smart-active-border');
-
   } else {
-    // Manual section active, smart grayed
     if (smartSection)  smartSection.classList.add('hub-section-grayed');
     if (manualSection) manualSection.classList.remove('hub-section-grayed');
-    if (carousel)      carousel.style.display  = 'none';
     if (thumbWrap)     thumbWrap.classList.remove('smart-active-border');
 
-    // Show manual thumbnail
-    const thumb   = document.getElementById('ytThumb');
-    const noVideo = document.getElementById('ytNoVideo');
-    const overlay = document.getElementById('ytThumbOverlay');
-    if (!state.youtubeId) {
-      if (thumb)   thumb.style.display   = 'none';
-      if (overlay) overlay.style.display = 'none';
-      if (noVideo) noVideo.style.display = 'flex';
+    // Show carousel if manual playlist has been searched
+    if (playlist.videos.length) {
+      if (carousel)   carousel.style.display  = 'flex';
+      if (smartEmpty) smartEmpty.style.display = 'none';
     } else {
-      if (noVideo) noVideo.style.display = 'none';
-      if (thumb)   { thumb.src = `https://img.youtube.com/vi/${state.youtubeId}/mqdefault.jpg`; thumb.style.display = 'block'; }
-      if (overlay) overlay.style.display = 'block';
+      if (carousel)   carousel.style.display  = 'none';
     }
   }
 
@@ -254,10 +275,10 @@ function toggleSmartAds() {
   const input = document.getElementById('youtubeInput');
   if (state.smartAds && !input.value.trim()) {
     input.classList.add('smart-active');
-    input.placeholder = 'paste url to override smart ads...';
+    input.placeholder = 'smart ads on — keywords optional';
   } else {
     input.classList.remove('smart-active');
-    input.placeholder = 'https://youtube.com/watch?v=...';
+    input.placeholder = 'e.g. lofi music chill beats...';
   }
 }
 
@@ -299,13 +320,23 @@ async function searchYouTubeViaWorker(query, maxResults = 5) {
     const data  = await res.json();
     const items = data.items?.filter(i => i.id?.videoId);
     if (!items?.length) return null;
-    return items.map(i => ({
-      id:        i.id.videoId,
-      title:     i.snippet?.title || '',
-      thumbnail: i.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
-      duration:  i.contentDetails?.duration || null, // ISO 8601 duration e.g. PT4M13S
-    }));
+    return items
+      .map(i => ({
+        id:        i.id.videoId,
+        title:     i.snippet?.title || '',
+        thumbnail: i.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
+        duration:  i.contentDetails?.duration || null,
+        durationSecs: parseDurationSecs(i.contentDetails?.duration),
+      }))
+      .filter(v => v.durationSecs === null || v.durationSecs >= 180); // min 3 minutes
   } catch (_) { return null; }
+}
+
+function parseDurationSecs(iso) {
+  if (!iso) return null;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return null;
+  return (parseInt(m[1]||0)*3600) + (parseInt(m[2]||0)*60) + parseInt(m[3]||0);
 }
 
 async function loadSmartAd() {
@@ -339,13 +370,13 @@ async function loadSmartAd() {
   }
 
   if (!video) {
-    // Final fallback to saved YouTube URL
-    const savedYt = localStorage.getItem('ba-last-yt');
-    if (savedYt) {
-      const id = extractYouTubeId(savedYt);
-      if (id) { state.smartAdVideoId = id; loadYouTube(id, savedYt); }
+    // Final fallback — use manual keywords if available
+    const savedKeywords = localStorage.getItem('ba-manual-keywords');
+    if (savedKeywords) {
+      const results = await searchYouTubeViaWorker(savedKeywords, 5);
+      if (results?.length) video = results[0];
     }
-    return;
+    if (!video) return;
   }
 
   console.log('[BetterAds] Smart Ads loading:', video.title);
@@ -373,25 +404,16 @@ function startWatching(channel) {
   const channelVal = (channel || document.getElementById('twitchInput').value.trim()).toLowerCase();
   if (!channelVal) { shake('twitchInput'); return; }
 
-  // YouTube: input field overrides stored URL, smart ads overrides both
-  const inputVal = document.getElementById('youtubeInput')?.value.trim() || '';
-  const savedYt  = localStorage.getItem('ba-last-yt') || '';
-  const ytVal    = inputVal || savedYt; // input takes priority over saved
-
-  let ytId = null;
-  if (!state.smartAds && ytVal) {
-    ytId = extractYouTubeId(ytVal);
-    if (!ytId && inputVal) { shake('youtubeInput'); return; }
+  // Save manual keywords if entered
+  const keywordVal = document.getElementById('youtubeInput')?.value.trim() || '';
+  if (keywordVal && !state.smartAds) {
+    localStorage.setItem('ba-manual-keywords', keywordVal);
   }
 
-  // Save override URL if user typed one
-  if (inputVal) localStorage.setItem('ba-last-yt', inputVal);
-
   state.channel   = channelVal;
-  state.youtubeId = ytId || '';
+  state.youtubeId = '';
 
   loadTwitch(channelVal);
-  if (ytId) loadYouTube(ytId, ytVal);
 
   document.getElementById('watchChannel').textContent = channelVal;
   document.getElementById('setupScreen').style.display = 'none';
@@ -400,11 +422,32 @@ function startWatching(channel) {
   window.addEventListener('message', onMessage);
   startExtensionCheck();
 
-  document.getElementById('hubYtInput').value = ytVal || '';
   renderHubYouTube();
   renderFavorites();
   startLivePolling();
-  if (state.smartAds) buildPlaylist();
+
+  if (state.smartAds) {
+    buildPlaylist();
+  } else {
+    // Auto-search manual keywords if saved
+    const savedKeywords = localStorage.getItem('ba-manual-keywords');
+    if (savedKeywords) searchWithKeywords(savedKeywords);
+  }
+}
+
+async function searchWithKeywords(query) {
+  const loading = document.getElementById('playlistLoading');
+  const carousel = document.getElementById('playlistCarousel');
+  if (carousel) carousel.style.display = 'flex';
+  if (loading)  loading.style.display  = 'flex';
+  const res = await searchYouTubeViaWorker(query, 5);
+  if (loading) loading.style.display = 'none';
+  if (!res?.length) return;
+  playlist.videos      = res;
+  playlist.index       = 0;
+  playlist.pickedIndex = null;
+  renderCarousel();
+  renderHubYouTube();
 }
 
 function loadTwitch(channel) {
@@ -942,12 +985,12 @@ toggleBtn.setAttribute('aria-pressed', state.smartAds);
 
 // YouTube field: never pre-fill, only show smart-active dim when smart ads on
 const ytInput = document.getElementById('youtubeInput');
-ytInput.value = ''; // always empty on load
+ytInput.value = '';
 if (state.smartAds) {
   ytInput.classList.add('smart-active');
-  ytInput.placeholder = 'paste url to override smart ads...';
+  ytInput.placeholder = 'smart ads on — keywords optional';
 } else {
-  ytInput.placeholder = 'https://youtube.com/watch?v=...';
+  ytInput.placeholder = 'e.g. lofi music chill beats...';
 }
 
 // Render favorites dock
