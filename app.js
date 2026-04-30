@@ -263,6 +263,16 @@ function formatTime(secs) {
 }
 
 // ─── Favorites ────────────────────────────────────────────────
+const liveStatus = {}; // channel → true/false
+
+function sortedFavorites() {
+  return [...favorites].sort((a, b) => {
+    const aLive = liveStatus[a] ? 1 : 0;
+    const bLive = liveStatus[b] ? 1 : 0;
+    return bLive - aLive; // live first
+  });
+}
+
 function renderFavorites() {
   const container = document.getElementById('hubFavorites');
   container.innerHTML = '';
@@ -272,12 +282,13 @@ function renderFavorites() {
     return;
   }
 
-  favorites.forEach((ch, i) => {
+  sortedFavorites().forEach(ch => {
+    const i    = favorites.indexOf(ch); // original index for remove
     const item = document.createElement('div');
-    item.className   = 'fav-item';
-    item.id          = `fav-${ch}`;
+    item.className = 'fav-item';
+    item.id        = `fav-${ch}`;
     item.innerHTML = `
-      <span class="fav-live-dot" id="fav-dot-${ch}"></span>
+      <span class="fav-live-dot${liveStatus[ch] ? ' live' : ''}" id="fav-dot-${ch}"></span>
       <span class="fav-name">${ch}</span>
       <button class="fav-watch-btn" onclick="switchToChannel('${ch}')">watch</button>
       <button class="fav-remove-btn" onclick="removeFavorite(${i})" title="Remove">✕</button>
@@ -388,15 +399,25 @@ async function checkAllLive() {
 }
 
 function setLiveDot(channel, isLive) {
+  const changed = liveStatus[channel] !== isLive;
+  liveStatus[channel] = isLive;
+
+  // Update hub dot directly if it exists
   const dot = document.getElementById(`fav-dot-${channel}`);
-  if (!dot) return;
-  if (isLive) {
-    dot.classList.add('live');
-    dot.title = `${channel} is live`;
-  } else {
-    dot.classList.remove('live');
-    dot.title = `${channel} is offline`;
+  if (dot) dot.classList.toggle('live', isLive);
+
+  // Update setup dock dot
+  const setupDot = document.getElementById(`setup-dot-${channel}`);
+  if (setupDot) setupDot.classList.toggle('live', isLive);
+
+  // Re-render to resort if live status changed
+  if (changed) {
+    renderFavorites();
+    renderSetupDock();
   }
+
+  // Update tooltip
+  if (dot) dot.title = isLive ? `${channel} is live` : `${channel} is offline`;
 }
 
 // ─── Ad handling ──────────────────────────────────────────────
@@ -518,7 +539,7 @@ function renderSetupDock() {
   dock.style.display = 'flex';
   channels.innerHTML = '';
 
-  favorites.forEach(ch => {
+  sortedFavorites().forEach(ch => {
     const chip = document.createElement('div');
     chip.className = 'setup-dock-chip';
     chip.id        = `setup-chip-${ch}`;
