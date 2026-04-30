@@ -209,12 +209,6 @@ async function searchManualPlaylist() {
   renderHubYouTube();
 }
 
-// Allow Enter key in keyword input
-document.addEventListener('DOMContentLoaded', () => {
-  const ki = document.getElementById('hubKeywordInput');
-  if (ki) ki.addEventListener('keydown', e => { if (e.key === 'Enter') searchManualPlaylist(); });
-});
-
 function toggleSmartAdsHub() {
   // Keep in sync with main toggle
   toggleSmartAds();
@@ -554,8 +548,12 @@ function saveYouTubeUrl() {
   setTimeout(() => { btn.textContent = 'save'; }, 1500);
 }
 
-document.getElementById('hubYtInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') saveYouTubeUrl();
+// Safe event delegation for hub inputs — use event delegation on document
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const id = e.target?.id;
+  if (id === 'favInput')        addFavorite();
+  if (id === 'hubKeywordInput') searchManualPlaylist();
 });
 
 function renderHubYouTube() {
@@ -711,10 +709,6 @@ function switchToChannel(channel) {
   document.getElementById('watchChannel').textContent = channel;
   closeHub();
 }
-
-document.getElementById('favInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addFavorite();
-});
 
 // ─── Live status checking ─────────────────────────────────────
 let liveTimer = null;
