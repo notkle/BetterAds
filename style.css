@@ -1145,3 +1145,26 @@ html, body {
 .playlist-shuffle-btn.spinning {
   transform: rotate(360deg);
 }
+
+/* ─── Playlist duration badge ────────────────────────────────── */
+.playlist-duration {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+/* ─── Grayout fix — ensure full opacity disabled state ───────── */
+#hubSmartSection.hub-section-grayed,
+#hubManualSection.hub-section-grayed {
+  opacity: 0.3;
+  pointer-events: none;
+  user-select: none;
+}
