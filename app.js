@@ -520,6 +520,7 @@ function openHub() {
   hubOpen = true;
   syncHubSmartToggle();
   renderHubYouTube();
+  renderFavorites();
 }
 
 function closeHub() {
@@ -921,6 +922,8 @@ function renderCountdown() {
 function renderSetupDock() {
   const dock     = document.getElementById('setupDock');
   const channels = document.getElementById('setupDockChannels');
+  if (!dock || !channels) return; // not on setup screen
+
   if (favorites.length === 0) { dock.style.display = 'none'; return; }
 
   dock.style.display = 'flex';
@@ -950,17 +953,7 @@ function showToast() {
 }
 
 function quickStart(channel) {
-  // Smart ads mode — no YouTube needed
-  if (state.smartAds) {
-    document.getElementById('twitchInput').value = channel;
-    startWatching();
-    return;
-  }
-  const ytVal   = document.getElementById('youtubeInput').value.trim();
-  const savedYt = localStorage.getItem('ba-last-yt') || '';
-  if (!ytVal && !savedYt) { showToast(); return; }
   document.getElementById('twitchInput').value = channel;
-  if (!ytVal && savedYt) document.getElementById('youtubeInput').value = savedYt;
   startWatching();
 }
 
