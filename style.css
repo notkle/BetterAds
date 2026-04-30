@@ -692,3 +692,89 @@ html, body {
   transition: border-color 0.15s, color 0.15s;
 }
 .hub-back-btn:hover { border-color: #3a3a4a; color: var(--text); }
+
+/* ─── Setup favorites dock ───────────────────────────────────── */
+.setup-dock {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px 20px;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 2;
+}
+
+.setup-dock-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.setup-dock-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 600px;
+}
+
+.setup-dock-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.setup-dock-chip:hover {
+  background: rgba(145,71,255,0.15);
+  border-color: rgba(145,71,255,0.4);
+  transform: translateY(-1px);
+}
+
+.setup-dock-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.setup-dock-chip-dot.live { background: #22c55e; }
+
+/* ─── Setup toast error ──────────────────────────────────────── */
+.setup-toast {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20, 8, 8, 0.92);
+  border: 1px solid rgba(255, 68, 68, 0.35);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+  z-index: 5;
+  animation: fade-up 0.2s ease;
+  backdrop-filter: blur(8px);
+}
