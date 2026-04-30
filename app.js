@@ -264,17 +264,28 @@ function renderHubYouTube() {
 function toggleSmartAds() {
   state.smartAds = !state.smartAds;
   const btn = document.getElementById('smartAdsToggle');
-  btn.setAttribute('aria-pressed', state.smartAds);
+  if (btn) btn.setAttribute('aria-pressed', state.smartAds);
   localStorage.setItem('ba-smart-ads', state.smartAds);
 
-  // Dim/undim the YouTube input
+  // If turned ON during a watch session, rebuild playlist for current stream
+  if (state.smartAds && state.channel) {
+    state.smartAdVideoId = null;
+    playlist.videos      = [];
+    playlist.index       = 0;
+    playlist.pickedIndex = null;
+    buildPlaylist();
+  }
+
+  // Dim/undim the YouTube input on setup screen
   const input = document.getElementById('youtubeInput');
-  if (state.smartAds && !input.value.trim()) {
-    input.classList.add('smart-active');
-    input.placeholder = 'smart ads on — keywords optional';
-  } else {
-    input.classList.remove('smart-active');
-    input.placeholder = 'e.g. lofi music chill beats...';
+  if (input) {
+    if (state.smartAds && !input.value.trim()) {
+      input.classList.add('smart-active');
+      input.placeholder = 'smart ads on — keywords optional';
+    } else {
+      input.classList.remove('smart-active');
+      input.placeholder = 'e.g. lofi music chill beats...';
+    }
   }
 }
 
@@ -324,7 +335,7 @@ async function searchYouTubeViaWorker(query, maxResults = 5) {
         duration:  i.contentDetails?.duration || null,
         durationSecs: parseDurationSecs(i.contentDetails?.duration),
       }))
-      .filter(v => v.durationSecs === null || v.durationSecs >= 180); // min 3 minutes
+      .filter(v => v.durationSecs === null || v.durationSecs >= 120); // min 2 minutes
   } catch (_) { return null; }
 }
 
@@ -533,33 +544,32 @@ function cancelHubClose() {
 
 // ─── Hub: YouTube section render ──────────────────────────────
 function renderHubYouTube() {
-  const smartSection  = document.getElementById('hubSmartSection');
-  const manualSection = document.getElementById('hubManualSection');
-  const carousel      = document.getElementById('playlistCarousel');
-  const smartEmpty    = document.getElementById('hubSmartEmpty');
-  const thumbWrap     = document.getElementById('playlistThumbWrap');
+  const smartSection   = document.getElementById('hubSmartSection');
+  const manualSection  = document.getElementById('hubManualSection');
+  const carousel       = document.getElementById('playlistCarousel');
+  const smartEmpty     = document.getElementById('hubSmartEmpty');
+  const thumbWrap      = document.getElementById('playlistThumbWrap');
+  const keywordRow     = document.querySelector('.hub-keyword-row');
+  const keywordHint    = document.querySelector('.hub-keyword-hint');
 
-  if (state.smartAds) {
-    if (smartSection)  smartSection.classList.remove('hub-section-grayed');
-    if (manualSection) manualSection.classList.add('hub-section-grayed');
-    if (thumbWrap)     thumbWrap.classList.add('smart-active-border');
-    if (playlist.videos.length) {
-      if (carousel)   carousel.style.display  = 'flex';
-      if (smartEmpty) smartEmpty.style.display = 'none';
-    } else {
-      if (carousel)   carousel.style.display  = 'none';
-      if (smartEmpty) smartEmpty.style.display = 'block';
-    }
+  // Never gray the carousel — both modes use it
+  if (smartSection)  smartSection.classList.remove('hub-section-grayed');
+  if (manualSection) manualSection.classList.remove('hub-section-grayed');
+
+  // Only gray the keyword input row when smart ads is ON
+  if (keywordRow)  keywordRow.classList.toggle('hub-section-grayed', state.smartAds);
+  if (keywordHint) keywordHint.classList.toggle('hub-section-grayed', state.smartAds);
+
+  // Purple border only when smart ads is active
+  if (thumbWrap) thumbWrap.classList.toggle('smart-active-border', state.smartAds);
+
+  // Show carousel if either mode has videos
+  if (playlist.videos.length) {
+    if (carousel)   carousel.style.display  = 'flex';
+    if (smartEmpty) smartEmpty.style.display = 'none';
   } else {
-    if (smartSection)  smartSection.classList.add('hub-section-grayed');
-    if (manualSection) manualSection.classList.remove('hub-section-grayed');
-    if (thumbWrap)     thumbWrap.classList.remove('smart-active-border');
-    if (playlist.videos.length) {
-      if (carousel)   carousel.style.display  = 'flex';
-      if (smartEmpty) smartEmpty.style.display = 'none';
-    } else {
-      if (carousel)   carousel.style.display  = 'none';
-    }
+    if (carousel)   carousel.style.display  = 'none';
+    if (smartEmpty) smartEmpty.style.display = state.smartAds ? 'block' : 'none';
   }
 
   syncHubSmartToggle();
