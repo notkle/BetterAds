@@ -1,0 +1,346 @@
+/* ─── Reset ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --twitch:   #9147ff;
+  --yt:       #ff4444;
+  --bg:       #050508;
+  --surface:  #0e0e14;
+  --border:   #1e1e2a;
+  --text:     #f0f0f8;
+  --muted:    #555570;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+  --font-body:    'Inter', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+
+/* ─── Setup screen ───────────────────────────────────────────── */
+.setup-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.setup-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 50%, rgba(145, 71, 255, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 80% 30%, rgba(255, 68, 68, 0.08) 0%, transparent 70%),
+    var(--bg);
+}
+
+/* Subtle grid texture */
+.setup-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(145,71,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(145,71,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.setup-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 52px;
+  width: 100%;
+  max-width: 480px;
+  padding: 0 24px;
+  animation: fade-up 0.6s ease both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Brand */
+.brand {
+  text-align: center;
+}
+
+.brand-better {
+  font-family: var(--font-display);
+  font-size: 72px;
+  letter-spacing: 2px;
+  color: var(--twitch);
+  line-height: 1;
+}
+
+.brand-commercials {
+  font-family: var(--font-display);
+  font-size: 72px;
+  letter-spacing: 2px;
+  color: var(--text);
+  line-height: 1;
+}
+
+.brand-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  margin-top: 10px;
+  text-transform: lowercase;
+}
+
+/* Form */
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.input-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.optional {
+  color: #333348;
+  font-size: 10px;
+}
+
+.setup-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 12px 16px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.setup-input:focus {
+  border-color: var(--twitch);
+  box-shadow: 0 0 0 3px rgba(145,71,255,0.1);
+}
+.setup-input::placeholder { color: #333348; }
+
+.start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--twitch);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  padding: 14px 24px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  margin-top: 4px;
+}
+.start-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.start-btn:active { transform: translateY(0); }
+
+.setup-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.note-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--twitch);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.note-link {
+  color: var(--twitch);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.note-link:hover { opacity: 1; }
+
+/* ─── Watch screen ───────────────────────────────────────────── */
+.watch-screen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
+.watch-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ─── YouTube overlay ────────────────────────────────────────── */
+.yt-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.yt-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.yt-overlay-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 2;
+}
+
+.yt-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.yt-ad-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--yt);
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.yt-ad-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.5px;
+}
+
+.yt-countdown {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: 1px;
+  min-width: 38px;
+}
+
+.yt-returning {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--twitch);
+  letter-spacing: 0.5px;
+  animation: pulse-text 1s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ─── Watch top bar ──────────────────────────────────────────── */
+.watch-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.watch-screen:hover .watch-bar { opacity: 1; }
+
+.watch-brand {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--twitch);
+}
+
+.watch-channel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.5px;
+}
+
+.watch-btn {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.6);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.watch-btn:hover {
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+}
+
+/* ─── Error state ────────────────────────────────────────────── */
+.setup-input.error {
+  border-color: var(--yt);
+  box-shadow: 0 0 0 3px rgba(255,68,68,0.12);
+}
