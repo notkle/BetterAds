@@ -605,7 +605,6 @@ html, body {
 }
 .fav-live-dot.live {
   background: #22c55e;
-  animation: blink 1.5s ease-in-out infinite;
 }
 
 .fav-name {
