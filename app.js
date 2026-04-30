@@ -47,11 +47,23 @@ function extractYouTubeId(url) {
 
 // ─── Smart Ads playlist ───────────────────────────────────────
 const playlist = {
-  videos:      [], // [{id, title, thumbnail}]
-  index:       0,  // currently previewed index
-  pickedIndex: null, // user-selected override
+  videos:       [],
+  index:        0,
+  pickedIndex:  null,
   refreshTimer: null,
+  queryIndex:   0,  // cycles through query variants on each shuffle
 };
+
+// Query variants — each shuffle uses the next one, guaranteeing fresh results
+const QUERY_VARIANTS = [
+  (game) => `${game} highlights`,
+  (game) => `${game} best moments`,
+  (game) => `${game} funny clips`,
+  (game) => `${game} gameplay`,
+  (game) => `${game} montage`,
+];
+
+let lastGame = 'gaming';
 
 async function buildPlaylist() {
   if (!state.smartAds) return;
@@ -62,8 +74,11 @@ async function buildPlaylist() {
   if (loading)  loading.style.display  = 'flex';
 
   const streamInfo = await fetchStreamGame(state.channel);
-  let query = 'gaming highlights';
-  if (streamInfo?.game) query = `${streamInfo.game} highlights`;
+  if (streamInfo?.game) lastGame = streamInfo.game;
+
+  const variantFn = QUERY_VARIANTS[playlist.queryIndex % QUERY_VARIANTS.length];
+  const query     = variantFn(lastGame);
+  console.log('[BetterAds] Playlist query:', query);
 
   const res = await searchYouTubeViaWorker(query, 5);
   if (loading) loading.style.display = 'none';
@@ -75,10 +90,23 @@ async function buildPlaylist() {
   playlist.pickedIndex = null;
 
   renderCarousel();
+  renderHubYouTube();
 
-  // Refresh playlist every 10 minutes
   if (playlist.refreshTimer) clearInterval(playlist.refreshTimer);
   playlist.refreshTimer = setInterval(buildPlaylist, 10 * 60 * 1000);
+}
+
+async function shufflePlaylist() {
+  const btn = document.querySelector('.playlist-shuffle-btn');
+  if (btn) {
+    btn.classList.add('spinning');
+    setTimeout(() => btn.classList.remove('spinning'), 300);
+  }
+  // Advance to next query variant — guarantees fresh different results
+  playlist.queryIndex = (playlist.queryIndex + 1) % QUERY_VARIANTS.length;
+  playlist.pickedIndex = null;
+  state.smartAdVideoId = null;
+  await buildPlaylist();
 }
 
 function renderCarousel() {
@@ -104,30 +132,23 @@ function renderCarousel() {
 function carouselPrev() {
   if (!playlist.videos.length) return;
   playlist.index = (playlist.index - 1 + playlist.videos.length) % playlist.videos.length;
-  if (state._swapped && state.smartAds) {
-    playlist.pickedIndex = playlist.index;
-    state.smartAdVideoId = null;
-    loadSmartAd();
-  }
   renderCarousel();
 }
 
 function carouselNext() {
   if (!playlist.videos.length) return;
   playlist.index = (playlist.index + 1) % playlist.videos.length;
-  if (state._swapped && state.smartAds) {
-    playlist.pickedIndex = playlist.index;
-    state.smartAdVideoId = null;
-    loadSmartAd();
-  }
   renderCarousel();
 }
 
 function pickCarouselVideo() {
   playlist.pickedIndex = playlist.index;
-  // Clear current video so picked one loads fresh next ad break
   state.smartAdVideoId = null;
   renderCarousel();
+  // If currently in an ad break, swap to picked video immediately
+  if (state._swapped && state.smartAds) {
+    loadSmartAd();
+  }
 }
 
 function getPlaylistVideo() {
@@ -139,20 +160,50 @@ function getPlaylistVideo() {
   return playlist.videos[Math.floor(Math.random() * playlist.videos.length)];
 }
 
+function toggleSmartAdsHub() {
+  // Keep in sync with main toggle
+  toggleSmartAds();
+  syncHubSmartToggle();
+  renderHubYouTube();
+}
+
+function syncHubSmartToggle() {
+  const hubToggle = document.getElementById('hubSmartToggle');
+  if (hubToggle) hubToggle.setAttribute('aria-pressed', state.smartAds);
+}
+
 function renderHubYouTube() {
-  const carousel   = document.getElementById('playlistCarousel');
-  const thumbWrap  = document.getElementById('ytThumbWrap');
-  const hubYtEdit  = document.getElementById('hubYtEdit');
+  const smartSection  = document.getElementById('hubSmartSection');
+  const manualSection = document.getElementById('hubManualSection');
+  const carousel      = document.getElementById('playlistCarousel');
+  const smartEmpty    = document.getElementById('hubSmartEmpty');
+  const thumbWrap     = document.getElementById('playlistThumbWrap');
 
   if (state.smartAds) {
-    if (carousel)  carousel.style.display  = playlist.videos.length ? 'flex' : 'none';
-    if (thumbWrap) thumbWrap.style.display  = 'none';
-    if (hubYtEdit) hubYtEdit.style.display  = 'none';
-  } else {
-    if (carousel)  carousel.style.display  = 'none';
-    if (thumbWrap) thumbWrap.style.display  = 'block';
-    if (hubYtEdit) hubYtEdit.style.display  = 'flex';
+    // Smart section active, manual grayed
+    if (smartSection)  smartSection.classList.remove('hub-section-grayed');
+    if (manualSection) manualSection.classList.add('hub-section-grayed');
 
+    // Show carousel or empty state
+    if (playlist.videos.length) {
+      if (carousel)   carousel.style.display  = 'flex';
+      if (smartEmpty) smartEmpty.style.display = 'none';
+    } else {
+      if (carousel)   carousel.style.display  = 'none';
+      if (smartEmpty) smartEmpty.style.display = 'block';
+    }
+
+    // Purple border on active carousel
+    if (thumbWrap) thumbWrap.classList.add('smart-active-border');
+
+  } else {
+    // Manual section active, smart grayed
+    if (smartSection)  smartSection.classList.add('hub-section-grayed');
+    if (manualSection) manualSection.classList.remove('hub-section-grayed');
+    if (carousel)      carousel.style.display  = 'none';
+    if (thumbWrap)     thumbWrap.classList.remove('smart-active-border');
+
+    // Show manual thumbnail
     const thumb   = document.getElementById('ytThumb');
     const noVideo = document.getElementById('ytNoVideo');
     const overlay = document.getElementById('ytThumbOverlay');
@@ -166,6 +217,8 @@ function renderHubYouTube() {
       if (overlay) overlay.style.display = 'block';
     }
   }
+
+  syncHubSmartToggle();
 }
 
 // ─── Smart Ads ────────────────────────────────────────────────
@@ -277,7 +330,9 @@ async function loadSmartAd() {
 
   console.log('[BetterAds] Smart Ads loading:', video.title);
   state.smartAdVideoId = video.id;
-  loadYouTube(video.id, '');
+  // Load with autoplay for smart ads
+  document.getElementById('youtubeFrame').src =
+    `https://www.youtube.com/embed/${video.id}?enablejsapi=1&autoplay=1`;
   startYtProgress();
 
   const label = document.getElementById('ytAdLabel');
@@ -398,6 +453,8 @@ function openHub() {
   cancelHubClose();
   hub.classList.add('open');
   hubOpen = true;
+  syncHubSmartToggle();
+  renderHubYouTube();
 }
 
 function closeHub() {
