@@ -113,20 +113,39 @@ function renderCarousel() {
   const videos = playlist.videos;
   if (!videos.length) return;
 
-  const v       = videos[playlist.index];
-  const thumb   = document.getElementById('playlistThumb');
-  const title   = document.getElementById('playlistTitle');
-  const counter = document.getElementById('playlistCounter');
-  const pickBtn = document.querySelector('.playlist-pick-btn');
+  const v        = videos[playlist.index];
+  const thumb    = document.getElementById('playlistThumb');
+  const title    = document.getElementById('playlistTitle');
+  const counter  = document.getElementById('playlistCounter');
+  const duration = document.getElementById('playlistDuration');
+  const pickBtn  = document.querySelector('.playlist-pick-btn');
+  const thumbWrap = document.getElementById('playlistThumbWrap');
 
   if (thumb)   { thumb.src = v.thumbnail; thumb.alt = v.title; }
   if (title)   title.textContent = v.title;
   if (counter) counter.textContent = `${playlist.index + 1} / ${videos.length}`;
+  if (duration && v.duration) duration.textContent = parseIsoDuration(v.duration);
+  else if (duration) duration.textContent = '';
+
+  // Purple border when smart ads active
+  if (thumbWrap) thumbWrap.classList.toggle('smart-active-border', state.smartAds);
+
   if (pickBtn) {
     const isPicked = playlist.pickedIndex === playlist.index;
     pickBtn.textContent = isPicked ? '✓ selected' : '✓ use this one';
     pickBtn.classList.toggle('picked', isPicked);
   }
+}
+
+function parseIsoDuration(iso) {
+  // Converts PT4M13S → 4:13, PT1H2M3S → 1:02:03
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return '';
+  const h = parseInt(m[1] || 0);
+  const min = parseInt(m[2] || 0);
+  const s = parseInt(m[3] || 0);
+  if (h > 0) return `${h}:${String(min).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${min}:${String(s).padStart(2,'0')}`;
 }
 
 function carouselPrev() {
@@ -284,6 +303,7 @@ async function searchYouTubeViaWorker(query, maxResults = 5) {
       id:        i.id.videoId,
       title:     i.snippet?.title || '',
       thumbnail: i.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
+      duration:  i.contentDetails?.duration || null, // ISO 8601 duration e.g. PT4M13S
     }));
   } catch (_) { return null; }
 }
