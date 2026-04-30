@@ -294,7 +294,7 @@ function addFavorite() {
   saveFavorites();
   document.getElementById('favInput').value = '';
   renderFavorites();
-  checkLive(val);
+  checkAllLive(); // check live status for all favorites including the new one
 }
 
 function removeFavorite(index) {
