@@ -950,38 +950,6 @@ html, body {
   user-select: none;
 }
 
-.smart-toggle {
-  width: 34px;
-  height: 18px;
-  border-radius: 9px;
-  background: var(--border2);
-  border: 1px solid var(--border2);
-  cursor: pointer;
-  position: relative;
-  transition: background 0.2s, border-color 0.2s;
-  outline: none;
-  flex-shrink: 0;
-}
-.smart-toggle[aria-pressed="true"] {
-  background: var(--twitch);
-  border-color: var(--twitch);
-}
-.smart-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #555;
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  transition: left 0.2s cubic-bezier(.4,0,.2,1), background 0.2s;
-  pointer-events: none;
-}
-.smart-toggle[aria-pressed="true"] .smart-thumb {
-  left: 19px;
-  background: #fff;
-}
-
 /* Dim youtube input when smart ads is on and no override typed */
 .setup-input.smart-active {
   opacity: 0.45;
