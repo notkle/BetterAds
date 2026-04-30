@@ -823,16 +823,20 @@ async function showYouTube(duration) {
   if (duration) startCountdown(duration);
 
   if (state.smartAds) {
-    // Smart Ads: search for a contextual video
+    // Smart Ads: load contextual video from playlist
     await loadSmartAd();
-  } else {
-    if (!state.youtubeId) return;
+  } else if (playlist.videos.length) {
+    // Manual: use the searched playlist the same way
+    await loadSmartAd();
+  } else if (state.youtubeId) {
+    // Legacy fallback: direct YouTube ID
     ytCommand('playVideo');
     if (state.isLiveStream) {
       setTimeout(() => ytCommandWithArgs('seekTo', [999999, true]), 800);
     }
     startYtProgress();
   }
+  // No video configured — overlay shows but blank (user sees countdown at least)
 }
 
 function returnToTwitch() {
