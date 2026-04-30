@@ -315,16 +315,16 @@ document.getElementById('favInput').addEventListener('keydown', e => {
 });
 
 // ─── Live status checking ─────────────────────────────────────
-// Uses Twitch's internal GraphQL endpoint with their own hardcoded
-// public Client ID. No registration or API key needed.
-// Batches all favorites into a single request per poll cycle.
+// Uses Twitch's internal GraphQL endpoint with their hardcoded
+// public Client ID. Uses inline queries (no persisted hash) for stability.
 
-const TWITCH_GQL      = 'https://gql.twitch.tv/gql';
+const TWITCH_GQL       = 'https://gql.twitch.tv/gql';
 const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 let liveTimer = null;
 
 function startLivePolling() {
   stopLivePolling();
+  console.log('[BC] Live polling started for:', favorites);
   checkAllLive();
   liveTimer = setInterval(checkAllLive, 60000);
 }
@@ -336,40 +336,49 @@ function stopLivePolling() {
 async function checkAllLive() {
   if (favorites.length === 0) return;
 
-  // Batch all channels into one GraphQL request
+  // One query per channel, batched into a single POST array
   const queries = favorites.map(ch => ({
-    operationName: 'StreamMetadata',
-    variables:     { channelLogin: ch },
-    extensions: {
-      persistedQuery: {
-        version:    1,
-        sha256Hash: 'a647c2a13599e5991e175155f798ca7f1ecddde73f7f341f39009c14dbf59b56',
-      },
-    },
+    operationName: 'UsersInfo',
+    variables:     { logins: [ch] },
+    query: `
+      query UsersInfo($logins: [String!]!) {
+        users(logins: $logins) {
+          login
+          stream {
+            id
+          }
+        }
+      }
+    `,
   }));
 
   try {
     const res = await fetch(TWITCH_GQL, {
       method:  'POST',
       headers: {
-        'Client-ID':   TWITCH_CLIENT_ID,
-        'Content-Type':'application/json',
+        'Client-ID':    TWITCH_CLIENT_ID,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(queries),
     });
 
-    if (!res.ok) return;
-    const data = await res.json();
+    if (!res.ok) {
+      console.warn('[BC] GQL live check failed:', res.status);
+      return;
+    }
 
-    // Response is an array matching the order of our queries
+    const data    = await res.json();
     const results = Array.isArray(data) ? data : [data];
+
     results.forEach((item, i) => {
-      const ch     = favorites[i];
-      const stream = item?.data?.user?.stream;
-      setLiveDot(ch, !!stream);
+      const ch      = favorites[i];
+      const users   = item?.data?.users;
+      const isLive  = Array.isArray(users) && users.length > 0 && !!users[0]?.stream;
+      setLiveDot(ch, isLive);
     });
-  } catch (_) {
-    // Network error — don't change dot states, try again next tick
+
+  } catch (err) {
+    console.warn('[BC] GQL live check error:', err);
   }
 }
 
