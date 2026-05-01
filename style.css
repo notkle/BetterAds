@@ -1407,3 +1407,75 @@ html, body {
   border-color: rgba(34,197,94,0.4);
   color: #22c55e;
 }
+
+/* ─── Favorites fills remaining hub space ────────────────────── */
+.hub-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-section-favorites {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hub-section-favorites .hub-favorites {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none;
+}
+
+/* ─── Playlist reject button ─────────────────────────────────── */
+.playlist-reject-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 36px; /* sits left of shuffle button */
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+.playlist-reject-btn:hover {
+  background: rgba(233,25,22,0.5);
+  border-color: var(--yt);
+  color: #fff;
+}
+.playlist-reject-btn.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ─── Reject video button ────────────────────────────────────── */
+.playlist-reject-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 34px; /* sits left of shuffle */
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.playlist-reject-btn:hover {
+  background: rgba(233,25,22,0.5);
+  border-color: #e91916;
+  color: #fff;
+}
