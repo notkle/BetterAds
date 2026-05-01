@@ -1282,3 +1282,23 @@ html, body {
   background: rgba(255,255,255,0.05);
   margin: 8px 0;
 }
+
+/* ─── Finish row layout ───────────────────────────────────────── */
+.hub-finish-row {
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.hub-finish-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.hub-finish-once-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
