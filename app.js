@@ -853,6 +853,13 @@ function onMessage(e) {
     document.getElementById('extWarning').style.display = 'none';
     return;
   }
+
+  if (e.data.source === 'betterads-extension' && e.data.type === 'ba-enter-key') {
+    if (document.getElementById('watchScreen')?.style.display !== 'none') {
+      chatBarOpen ? closeChatBar() : openChatBar();
+    }
+    return;
+  }
   if (e.data.source !== 'betterads-extension' && e.data.source !== 'gridview-extension') return;
   if (e.data.type !== 'vg-ad') return;
   const ch = (e.data.channel || '').toLowerCase().trim();
@@ -1105,21 +1112,24 @@ function openChatBar() {
   if (!chatFrameReady) {
     frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
     chatFrameReady = true;
-    // Auto-focus after iframe loads
     frame.onload = () => {
-      setTimeout(() => {
-        window.postMessage({ source: 'betterads-page', type: 'ba-chat-focus' }, '*');
-      }, 800);
+      setTimeout(() => focusChatInput(frame), 1500);
     };
   } else {
-    // Already loaded — focus immediately
-    setTimeout(() => {
-      window.postMessage({ source: 'betterads-page', type: 'ba-chat-focus' }, '*');
-    }, 100);
+    focusChatInput(frame);
   }
 
   bar.style.display = 'block';
   chatBarOpen = true;
+}
+
+function focusChatInput(frame) {
+  try {
+    frame.contentWindow.postMessage({
+      source: 'betterads-page',
+      type:   'ba-chat-focus',
+    }, '*');
+  } catch (_) {}
 }
 
 function closeChatBar() {
