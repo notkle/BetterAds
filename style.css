@@ -1302,3 +1302,14 @@ html, body {
   justify-content: space-between;
   width: 100%;
 }
+
+/* ─── Finish this video toggle active state ───────────────────── */
+#finishOnceToggle[aria-pressed="true"] {
+  background: var(--twitch);
+  border-color: var(--twitch);
+  box-shadow: 0 0 0 3px rgba(145,71,255,0.25);
+}
+#finishOnceToggle[aria-pressed="true"] .smart-thumb {
+  left: 19px;
+  background: #fff;
+}
