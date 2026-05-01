@@ -465,9 +465,40 @@ async function searchWithKeywords(query) {
 }
 
 function loadTwitch(channel) {
+  const savedVol = localStorage.getItem('ba-twitch-volume');
+  const vol = savedVol !== null ? parseFloat(savedVol) : 1.0;
   document.getElementById('twitchFrame').src =
-    `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${location.hostname}&autoplay=true`;
+    `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${location.hostname}&autoplay=true&volume=${vol}`;
 }
+
+// Fade YouTube volume to 0 over duration ms then call done()
+function fadeOutYouTube(duration, done) {
+  const steps    = 20;
+  const interval = duration / steps;
+  let   step     = 0;
+  const timer = setInterval(() => {
+    step++;
+    const vol = Math.max(0, 1 - step / steps);
+    try {
+      ytCommandWithArgs('setVolume', [Math.round(vol * 100)]);
+    } catch (_) {}
+    if (step >= steps) {
+      clearInterval(timer);
+      if (done) done();
+    }
+  }, interval);
+}
+
+// Save Twitch volume when user changes it
+window.addEventListener('message', e => {
+  if (!e.data) return;
+  try {
+    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+    if (data.eventName === 'volumechange' && data.params?.volume !== undefined) {
+      localStorage.setItem('ba-twitch-volume', data.params.volume);
+    }
+  } catch (_) {}
+});
 
 function isLiveStreamUrl(url) {
   return /youtube\.com\/live\//i.test(url) ||
@@ -932,7 +963,7 @@ function returnToTwitch() {
   }
 
   document.getElementById('ytReturning').style.display = 'block';
-  setTimeout(() => {
+  fadeOutYouTube(800, () => {
     if (state.smartAds) {
       clearSmartAd?.();
     } else {
@@ -941,31 +972,34 @@ function returnToTwitch() {
     stopYtProgress();
     unmuteTwitch();
     const overlay = document.getElementById('ytOverlay');
-    overlay.style.transition = 'opacity 0.6s ease';
+    overlay.style.transition = 'opacity 0.4s ease';
     overlay.classList.remove('visible');
     document.getElementById('ytReturning').style.display = 'none';
     state._swapped         = false;
     finishState.onceActive = false;
     clearCountdown();
     updateFinishToggleUI();
-  }, 1000);
+    // Restore YouTube volume for next time
+    ytCommandWithArgs('setVolume', [100]);
+  });
 }
 
 function forceReturnToTwitch() {
   finishState.onceActive = false;
   updateFinishToggleUI();
   document.getElementById('ytReturning').style.display = 'block';
-  setTimeout(() => {
+  fadeOutYouTube(800, () => {
     ytCommand('pauseVideo');
     stopYtProgress();
     unmuteTwitch();
     const overlay = document.getElementById('ytOverlay');
-    overlay.style.transition = 'opacity 0.6s ease';
+    overlay.style.transition = 'opacity 0.4s ease';
     overlay.classList.remove('visible');
     document.getElementById('ytReturning').style.display = 'none';
     state._swapped = false;
     clearCountdown();
-  }, 1000);
+    ytCommandWithArgs('setVolume', [100]);
+  });
 }
 
 function hideYouTube(animate) {
