@@ -591,6 +591,7 @@ function goBack() {
   stopYtProgress();
   document.getElementById('twitchFrame').src = 'about:blank';
   document.getElementById('youtubeFrame').src = 'about:blank';
+  resetChatFrame();
   hideYouTube(false);
   window.removeEventListener('message', onMessage);
   state.adActive  = false;
@@ -951,6 +952,7 @@ function switchToChannel(channel) {
   state.smartAdVideoId = null;
   playlist.videos = []; playlist.index = 0; playlist.pickedIndex = null;
   loadTwitch(channel);
+  resetChatFrame();
   document.getElementById('watchChannel').textContent = channel;
   closeHub();
   if (state.smartAds) buildPlaylist();
@@ -1041,6 +1043,7 @@ document.addEventListener('keydown', e => {
   const id = e.target?.id;
   if (id === 'favInput')        addFavorite();
   if (id === 'hubKeywordInput') searchManualPlaylist();
+  if (id === 'hubChatInput')    sendChatMessage();
 });
 
 document.addEventListener('input', e => {
@@ -1074,6 +1077,84 @@ document.getElementById('twitchInput').addEventListener('keydown', e => {
 document.getElementById('youtubeInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') startWatching();
 });
+
+// ─── Chat ─────────────────────────────────────────────────────
+let chatFrameReady = false;
+let chatFrameLoading = false;
+let pendingChatMessage = null;
+
+function ensureChatFrame(callback) {
+  const frame = document.getElementById('chatFrame');
+  if (!frame) return;
+
+  if (chatFrameReady) { callback(); return; }
+
+  if (chatFrameLoading) {
+    pendingChatMessage = callback;
+    return;
+  }
+
+  // Load chat iframe for the first time
+  chatFrameLoading = true;
+  frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
+
+  frame.onload = () => {
+    // Give the chat UI time to fully render before injecting
+    setTimeout(() => {
+      chatFrameReady  = true;
+      chatFrameLoading = false;
+      callback();
+      if (pendingChatMessage) { pendingChatMessage(); pendingChatMessage = null; }
+    }, 2500);
+  };
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('hubChatInput');
+  if (!input) return;
+  const msg = input.value.trim();
+  if (!msg) return;
+  if (!state.channel) { showChatHint('no stream loaded', 'error'); return; }
+
+  input.value = '';
+  showChatHint('connecting...', 'success');
+
+  ensureChatFrame(() => {
+    showChatHint('sending...', 'success');
+    window.postMessage({
+      source:  'betterads-page',
+      type:    'ba-chat',
+      message: msg,
+      channel: state.channel,
+    }, '*');
+  });
+}
+
+function showChatHint(text, type) {
+  const hint = document.getElementById('hubChatHint');
+  if (!hint) return;
+  hint.textContent   = text;
+  hint.className     = `hub-chat-hint ${type}`;
+  hint.style.display = 'block';
+  setTimeout(() => { hint.style.display = 'none'; }, 2500);
+}
+
+// Listen for confirmation back from extension
+window.addEventListener('message', e => {
+  if (!e.data || e.data.source !== 'betterads-extension') return;
+  if (e.data.type === 'ba-chat-sent')   showChatHint('✓ sent', 'success');
+  if (e.data.type === 'ba-chat-error')  showChatHint('⚠ not logged in', 'error');
+  if (e.data.type === 'ba-chat-closed') showChatHint('⚠ chat unavailable', 'error');
+});
+
+// Reset chat frame on channel switch or go back
+function resetChatFrame() {
+  const frame = document.getElementById('chatFrame');
+  if (frame) frame.src = 'about:blank';
+  chatFrameReady   = false;
+  chatFrameLoading = false;
+  pendingChatMessage = null;
+}
 
 // ─── Dev helpers ──────────────────────────────────────────────
 window.simulateAd = (isAd, duration) => handleAd(isAd, duration || null);
