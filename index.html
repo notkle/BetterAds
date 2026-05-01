@@ -72,6 +72,8 @@
   <div class="watch-screen" id="watchScreen" style="display:none">
 
     <iframe id="twitchFrame" class="watch-frame" allow="autoplay; fullscreen" allowfullscreen></iframe>
+    <!-- Chat iframe — loaded on demand only when user sends a message -->
+    <iframe id="chatFrame" style="display:none;width:0;height:0;border:none;" allow="autoplay"></iframe>
 
     <!-- Extension not detected warning -->
     <div class="ext-warning" id="extWarning" style="display:none">
@@ -193,6 +195,15 @@
           <div class="hub-add-fav">
             <input class="hub-input" id="favInput" type="text" placeholder="add channel..." spellcheck="false" />
             <button class="hub-add-btn" onclick="addFavorite()">+</button>
+          </div>
+        </div>
+
+        <!-- Chat -->
+        <div class="hub-chat-row">
+          <div class="hub-chat-wrap">
+            <input class="hub-chat-input" id="hubChatInput" type="text"
+              placeholder="send a message..." spellcheck="false" maxlength="500" />
+            <div class="hub-chat-hint" id="hubChatHint" style="display:none"></div>
           </div>
         </div>
 
