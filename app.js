@@ -604,10 +604,10 @@ window.addEventListener('message', e => {
           playlist.pickedIndex = null;
           playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
           loadSmartAd();
-        } else if (finishState.enabled && !state.adActive) {
+        } else if ((finishState.enabled || finishState.onceActive) && !state.adActive) {
           // Finish mode — video done, ad already over — swap back now
           console.log('[BetterAds] Video finished — returning to Twitch');
-          finishState.enabled = false;
+          finishState.onceActive = false;
           updateFinishToggleUI();
           forceReturnToTwitch();
         } else if (state.smartAds && state.adActive) {
@@ -772,39 +772,73 @@ function setLiveDot(channel, isLive) {
 
 // ─── Finish ad break videos ───────────────────────────────────
 const finishState = {
-  enabled:   false,  // user preference
-  adWasActive: false, // tracks if ad was active when user toggled off
+  enabled:     false, // always-finish toggle
+  onceActive:  false, // finish-this-video-only flag
+  adWasActive: false,
 };
+
+function finishThisVideo() {
+  if (!state._swapped) return; // only relevant during an ad swap
+
+  const btn   = document.getElementById('finishOnceBtn');
+  const error = document.getElementById('finishOnceError');
+
+  // If already active — cancel it
+  if (finishState.onceActive) {
+    finishState.onceActive = false;
+    updateFinishToggleUI();
+    // If ad already over, swap back now
+    if (!state.adActive) returnToTwitch();
+    return;
+  }
+
+  // Check if video will end before ad break
+  const videoRemaining = state.ytDuration && state.ytCurrent
+    ? state.ytDuration - state.ytCurrent
+    : null;
+  const adRemaining = state.countdownSecs;
+
+  if (error) {
+    if (videoRemaining !== null && adRemaining !== null && videoRemaining < adRemaining) {
+      error.style.display = 'flex';
+      setTimeout(() => { if (error) error.style.display = 'none'; }, 4000);
+      // Still allow activation — just warn them
+    } else {
+      error.style.display = 'none';
+    }
+  }
+
+  finishState.onceActive = true;
+  updateFinishToggleUI();
+}
 
 function toggleFinishVideo() {
   finishState.enabled = !finishState.enabled;
   localStorage.setItem('ba-finish-video', finishState.enabled);
   updateFinishToggleUI();
 
-  // If turning OFF while YouTube is playing
   if (!finishState.enabled && state._swapped) {
-    if (!state.adActive) {
-      // Ad already over — swap back to Twitch immediately
-      returnToTwitch();
-    }
-    // Ad still running — do nothing, returnToTwitch fires normally when ad ends
+    if (!state.adActive) returnToTwitch();
   }
 }
 
 function updateFinishToggleUI() {
-  const toggle = document.getElementById('finishToggle');
-  const status = document.getElementById('hubFinishStatus');
-  if (!toggle) return;
+  const toggle  = document.getElementById('finishToggle');
+  const status  = document.getElementById('hubFinishStatus');
+  const onceBtn = document.getElementById('finishOnceBtn');
 
-  toggle.setAttribute('aria-pressed', finishState.enabled);
+  if (toggle) toggle.setAttribute('aria-pressed', finishState.enabled);
 
-  // Show "active" indicator only when enabled AND currently in a swap
-  const isLive = finishState.enabled && state._swapped && !state.adActive;
+  const isLive = (finishState.enabled || finishState.onceActive) && state._swapped && !state.adActive;
   if (status) status.style.display = isLive ? 'block' : 'none';
-  if (isLive) {
-    toggle.classList.add('pulsing');
-  } else {
-    toggle.classList.remove('pulsing');
+  if (toggle) toggle.classList.toggle('pulsing', isLive);
+
+  // Update once button state
+  if (onceBtn) {
+    const swapping = state._swapped;
+    onceBtn.disabled = !swapping;
+    onceBtn.classList.toggle('active', finishState.onceActive);
+    onceBtn.textContent = finishState.onceActive ? '✕ cancel finish' : 'finish this video';
   }
 }
 
@@ -896,11 +930,9 @@ async function showYouTube(duration) {
 function returnToTwitch() {
   if (!state._swapped) return;
 
-  // If "finish ad break videos" is ON and ad just ended — wait for video to finish
-  if (finishState.enabled && !state.adActive) {
-    // Mark that the ad is over but we're waiting for video
+  // If finish mode is active (toggle or once) and ad just ended — wait for video
+  if ((finishState.enabled || finishState.onceActive) && !state.adActive) {
     updateFinishToggleUI();
-    // Video end is handled by playerState === 0 in the message listener
     return;
   }
 
@@ -916,7 +948,8 @@ function returnToTwitch() {
     overlay.style.transition = 'opacity 0.6s ease';
     overlay.classList.remove('visible');
     document.getElementById('ytReturning').style.display = 'none';
-    state._swapped = false;
+    state._swapped         = false;
+    finishState.onceActive = false;
     clearCountdown();
     updateFinishToggleUI();
   }, 1000);
