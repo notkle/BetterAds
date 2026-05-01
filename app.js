@@ -54,7 +54,7 @@ function renderHistoryDropdown(filter) {
   if (!el) return;
   const matches = filter.trim()
     ? searchHistory.filter(h => h.toLowerCase().includes(filter.toLowerCase()))
-    : [];
+    : searchHistory; // show all on empty/focus
   if (!matches.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
   el.innerHTML = matches.map(h => `
@@ -121,12 +121,54 @@ function updateFinishToggleUI() {
 
 // ─── Smart Ads playlist ───────────────────────────────────────
 const playlist = {
-  videos:       [],
+  pool:         [], // all fetched videos (up to 20)
+  videos:       [], // currently active 5 shown in carousel
   index:        0,
   pickedIndex:  null,
   refreshTimer: null,
   queryIndex:   0,
 };
+
+function populateFromPool() {
+  // Pick 5 randomly from pool that aren't already in active videos
+  const activeIds = new Set(playlist.videos.map(v => v.id));
+  const available = playlist.pool.filter(v => !activeIds.has(v.id));
+  const shuffled  = available.sort(() => Math.random() - 0.5);
+  playlist.videos = [...playlist.videos, ...shuffled].slice(0, 5);
+}
+
+function rejectCurrentVideo() {
+  if (!playlist.videos.length) return;
+  // Remove current video from active list and pool
+  const rejected = playlist.videos[playlist.index];
+  playlist.pool   = playlist.pool.filter(v => v.id !== rejected.id);
+  playlist.videos.splice(playlist.index, 1);
+
+  // Pull replacement from remaining pool if available
+  const activeIds = new Set(playlist.videos.map(v => v.id));
+  const available = playlist.pool.filter(v => !activeIds.has(v.id));
+  if (available.length) {
+    const replacement = available[Math.floor(Math.random() * available.length)];
+    playlist.videos.push(replacement);
+  }
+
+  // Adjust index if we removed the last item
+  if (playlist.index >= playlist.videos.length) {
+    playlist.index = Math.max(0, playlist.videos.length - 1);
+  }
+
+  // If current was the picked one, clear pick
+  if (playlist.pickedIndex === playlist.index) playlist.pickedIndex = null;
+
+  // If rejected video was playing, load next
+  if (state.smartAdVideoId === rejected.id) {
+    state.smartAdVideoId = null;
+    if (state._swapped) loadSmartAd();
+  }
+
+  renderCarousel();
+  renderHubYouTube();
+}
 
 const QUERY_VARIANTS = [
   g => `${g} highlights`,
@@ -152,9 +194,10 @@ async function buildPlaylist() {
 
   const res = await searchYouTubeViaWorker(query, 5);
   if (loading) loading.style.display = 'none';
-  if (!res?.length) return;
+  if (!res?.pool?.length) return;
 
-  playlist.videos      = res;
+  playlist.pool        = res.pool;
+  playlist.videos      = res.videos;
   playlist.index       = 0;
   playlist.pickedIndex = null;
 
@@ -175,6 +218,39 @@ async function shufflePlaylist() {
   playlist.pickedIndex = null;
   state.smartAdVideoId = null;
   await buildPlaylist();
+}
+
+async function rejectVideo() {
+  if (!playlist.videos.length) return;
+
+  const btn = document.querySelector('.playlist-reject-btn');
+  if (btn) btn.classList.add('loading');
+
+  // Remove current video from list
+  const rejectedId = playlist.videos[playlist.index]?.id;
+  playlist.videos.splice(playlist.index, 1);
+
+  // Adjust index if we were at the end
+  if (playlist.index >= playlist.videos.length && playlist.index > 0) {
+    playlist.index = playlist.videos.length - 1;
+  }
+
+  // Fetch one replacement — get 20, filter out existing IDs, pick 1
+  const existingIds = new Set(playlist.videos.map(v => v.id));
+  if (rejectedId) existingIds.add(rejectedId);
+
+  const query = QUERY_VARIANTS[playlist.queryIndex % QUERY_VARIANTS.length](lastGame);
+  const res   = await searchYouTubeViaWorker(query, 5);
+
+  if (res?.length) {
+    // Pick first result not already in playlist
+    const fresh = res.find(v => !existingIds.has(v.id));
+    if (fresh) playlist.videos.push(fresh);
+  }
+
+  if (btn) btn.classList.remove('loading');
+  renderCarousel();
+  renderHubYouTube();
 }
 
 function renderCarousel() {
@@ -325,8 +401,7 @@ async function fetchStreamGame(channel) {
 
 async function searchYouTubeViaWorker(query, maxResults = 5) {
   try {
-    const fetchCount = maxResults <= 5 ? 20 : maxResults;
-    const res  = await fetch(`${WORKER_URL}?q=${encodeURIComponent(query)}&max=${fetchCount}`);
+    const res  = await fetch(`${WORKER_URL}?q=${encodeURIComponent(query)}&max=20`);
     if (!res.ok) return null;
     const data  = await res.json();
     const items = data.items?.filter(i => i.id?.videoId);
@@ -340,7 +415,9 @@ async function searchYouTubeViaWorker(query, maxResults = 5) {
         durationSecs: parseDurationSecs(i.contentDetails?.duration),
       }))
       .filter(v => v.durationSecs === null || v.durationSecs >= 120);
-    return mapped.sort(() => Math.random() - 0.5).slice(0, maxResults);
+    const shuffled = mapped.sort(() => Math.random() - 0.5);
+    // Return object with full pool and active slice
+    return { pool: shuffled, videos: shuffled.slice(0, maxResults) };
   } catch (_) { return null; }
 }
 
@@ -363,13 +440,21 @@ async function loadSmartAd() {
     const q = streamInfo?.game ? `${streamInfo.game} highlights` : 'gaming highlights';
     const results = await searchYouTubeViaWorker(q, 5);
     if (countdownEl) countdownEl.textContent = '';
-    if (results?.length) { playlist.videos = results; video = results[0]; }
+    if (results?.pool?.length) {
+      playlist.pool   = results.pool;
+      playlist.videos = results.videos;
+      video = results.videos[0];
+    }
   }
   if (!video) {
     const saved = localStorage.getItem('ba-manual-keywords');
     if (saved) {
       const r = await searchYouTubeViaWorker(saved, 5);
-      if (r?.length) video = r[0];
+      if (r?.pool?.length) {
+        playlist.pool   = r.pool;
+        playlist.videos = r.videos;
+        video = r.videos[0];
+      }
     }
     if (!video) return;
   }
@@ -398,9 +483,10 @@ async function searchManualPlaylist() {
 
   const res = await searchYouTubeViaWorker(query, 5);
   if (loading) loading.style.display = 'none';
-  if (!res?.length) return;
+  if (!res?.pool?.length) return;
 
-  playlist.videos      = res;
+  playlist.pool        = res.pool;
+  playlist.videos      = res.videos;
   playlist.index       = 0;
   playlist.pickedIndex = null;
   state.smartAdVideoId = null;
@@ -415,8 +501,11 @@ async function searchWithKeywords(query) {
   if (loading)  loading.style.display  = 'flex';
   const res = await searchYouTubeViaWorker(query, 5);
   if (loading) loading.style.display = 'none';
-  if (!res?.length) return;
-  playlist.videos = res; playlist.index = 0; playlist.pickedIndex = null;
+  if (!res?.pool?.length) return;
+  playlist.pool   = res.pool;
+  playlist.videos = res.videos;
+  playlist.index  = 0;
+  playlist.pickedIndex = null;
   renderCarousel();
   renderHubYouTube();
 }
@@ -956,6 +1045,13 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('input', e => {
   if (e.target?.id === 'hubKeywordInput') renderHistoryDropdown(e.target.value);
+});
+
+document.addEventListener('focusin', e => {
+  if (e.target?.id === 'hubKeywordInput') {
+    // Show all history on focus if input is empty, filtered if not
+    renderHistoryDropdown(e.target.value);
+  }
 });
 
 document.addEventListener('click', e => {
