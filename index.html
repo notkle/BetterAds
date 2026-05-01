@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
-  <script src="https://player.twitch.tv/js/embed/v1.js" async></script>
 </head>
 <body>
 
@@ -72,7 +71,7 @@
   <!-- ── Watch screen ───────────────────────────────────────── -->
   <div class="watch-screen" id="watchScreen" style="display:none">
 
-    <div id="twitchPlayer" class="watch-frame"></div>
+    <iframe id="twitchFrame" class="watch-frame" allow="autoplay; fullscreen" allowfullscreen></iframe>
 
     <!-- Extension not detected warning -->
     <div class="ext-warning" id="extWarning" style="display:none">
@@ -111,10 +110,6 @@
         <div class="hub-header">
           <span class="hub-brand">BA</span>
           <span class="hub-title">hub</span>
-          <button class="hub-quality-btn" id="hubQualityBtn" onclick="setMaxQuality(this)" title="set max quality">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            HD
-          </button>
           <button class="hub-close" onclick="closeHub()">✕</button>
         </div>
 
