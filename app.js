@@ -604,7 +604,7 @@ window.addEventListener('message', e => {
           playlist.pickedIndex = null;
           playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
           loadSmartAd();
-        } else if ((finishState.enabled || finishState.onceActive) && !state.adActive) {
+        } else if (finishState.onceActive && !state.adActive) {
           // Finish mode — video done, ad already over — swap back now
           console.log('[BetterAds] Video finished — returning to Twitch');
           finishState.onceActive = false;
@@ -770,39 +770,31 @@ function setLiveDot(channel, isLive) {
   if (dot) dot.title = isLive ? `${channel} is live` : `${channel} is offline`;
 }
 
-// ─── Finish ad break videos ───────────────────────────────────
+// ─── Finish this video ────────────────────────────────────────
 const finishState = {
-  enabled:     false, // always-finish toggle
-  onceActive:  false, // finish-this-video-only flag
-  adWasActive: false,
+  onceActive: false,
 };
 
 function finishThisVideo() {
-  if (!state._swapped) return; // only relevant during an ad swap
+  if (!state._swapped) return;
 
-  const btn   = document.getElementById('finishOnceBtn');
   const error = document.getElementById('finishOnceError');
 
-  // If already active — cancel it
   if (finishState.onceActive) {
     finishState.onceActive = false;
     updateFinishToggleUI();
-    // If ad already over, swap back now
     if (!state.adActive) returnToTwitch();
     return;
   }
 
-  // Check if video will end before ad break
   const videoRemaining = state.ytDuration && state.ytCurrent
-    ? state.ytDuration - state.ytCurrent
-    : null;
+    ? state.ytDuration - state.ytCurrent : null;
   const adRemaining = state.countdownSecs;
 
   if (error) {
     if (videoRemaining !== null && adRemaining !== null && videoRemaining < adRemaining) {
       error.style.display = 'flex';
       setTimeout(() => { if (error) error.style.display = 'none'; }, 4000);
-      // Still allow activation — just warn them
     } else {
       error.style.display = 'none';
     }
@@ -812,27 +804,9 @@ function finishThisVideo() {
   updateFinishToggleUI();
 }
 
-function toggleFinishVideo() {
-  finishState.enabled = !finishState.enabled;
-  localStorage.setItem('ba-finish-video', finishState.enabled);
-  updateFinishToggleUI();
-
-  if (!finishState.enabled && state._swapped) {
-    if (!state.adActive) returnToTwitch();
-  }
-}
-
 function updateFinishToggleUI() {
-  const toggle      = document.getElementById('finishToggle');
-  const onceToggle  = document.getElementById('finishOnceToggle');
-  const status      = document.getElementById('hubFinishStatus');
-
-  if (toggle) toggle.setAttribute('aria-pressed', finishState.enabled);
+  const onceToggle = document.getElementById('finishOnceToggle');
   if (onceToggle) onceToggle.setAttribute('aria-pressed', finishState.onceActive);
-
-  const isLive = (finishState.enabled || finishState.onceActive) && state._swapped && !state.adActive;
-  if (status) status.style.display = isLive ? 'block' : 'none';
-  if (toggle) toggle.classList.toggle('pulsing', isLive);
 }
 
 // ─── Extension handshake ──────────────────────────────────────
@@ -923,8 +897,7 @@ async function showYouTube(duration) {
 function returnToTwitch() {
   if (!state._swapped) return;
 
-  // If finish mode is active (toggle or once) and ad just ended — wait for video
-  if ((finishState.enabled || finishState.onceActive) && !state.adActive) {
+  if (finishState.onceActive && !state.adActive) {
     updateFinishToggleUI();
     return;
   }
@@ -949,8 +922,7 @@ function returnToTwitch() {
 }
 
 function forceReturnToTwitch() {
-  // Hard return — bypasses finish video preference
-  finishState.enabled = false;
+  finishState.onceActive = false;
   updateFinishToggleUI();
   document.getElementById('ytReturning').style.display = 'block';
   setTimeout(() => {
@@ -1085,9 +1057,6 @@ if (state.smartAds) {
 } else {
   ytInput.placeholder = 'e.g. lofi music chill beats...';
 }
-
-// Restore finish video preference
-finishState.enabled = localStorage.getItem('ba-finish-video') === 'true';
 
 // Render favorites dock
 renderSetupDock();
