@@ -1038,11 +1038,10 @@ function showToast() {
 }
 
 // ─── Event delegation ─────────────────────────────────────────
+// Enter key on capture phase — intercepts before Twitch iframe steals it
 document.addEventListener('keydown', e => {
-  // Esc closes chat bar
-  if (e.key === 'Escape' && chatBarOpen) { closeChatBar(); return; }
+  if (e.key === 'Escape' && chatBarOpen) { closeChatBar(); e.preventDefault(); return; }
 
-  // Enter with no input focused — toggle chat bar while watching
   const tag      = document.activeElement?.tagName;
   const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' ||
                    document.activeElement?.contentEditable === 'true';
@@ -1050,16 +1049,16 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !isTyping && !e.repeat) {
     if (document.getElementById('watchScreen')?.style.display !== 'none') {
       chatBarOpen ? closeChatBar() : openChatBar();
+      e.preventDefault();
       return;
     }
   }
 
-  // Hub input handlers
   if (e.key !== 'Enter') return;
   const id = e.target?.id;
   if (id === 'favInput')        addFavorite();
   if (id === 'hubKeywordInput') searchManualPlaylist();
-});
+}, true); // capture: true — fires before iframe
 
 document.addEventListener('input', e => {
   if (e.target?.id === 'hubKeywordInput') renderHistoryDropdown(e.target.value);
