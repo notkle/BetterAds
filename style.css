@@ -1313,3 +1313,97 @@ html, body {
   left: 19px;
   background: #fff;
 }
+
+/* ─── Skip button ────────────────────────────────────────────── */
+.yt-skip-btn {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.8);
+  width: 30px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.yt-skip-btn:hover {
+  background: rgba(145,71,255,0.5);
+  border-color: var(--twitch);
+  color: #fff;
+}
+
+/* ─── Search history dropdown ────────────────────────────────── */
+.hub-keyword-wrap {
+  position: relative;
+}
+
+.hub-search-history {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1a1a24;
+  border: 1px solid var(--border2);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  z-index: 50;
+  overflow: hidden;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.hub-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  transition: background 0.1s;
+  gap: 8px;
+}
+.hub-history-item:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+
+.hub-history-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.hub-history-del {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.hub-history-item:hover .hub-history-del { opacity: 1; }
+.hub-history-del:hover { color: #ff4444; }
+
+/* ─── Hub quality button ─────────────────────────────────────── */
+.hub-quality-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(145,71,255,0.1);
+  border: 1px solid rgba(145,71,255,0.3);
+  border-radius: 5px;
+  color: var(--twitch);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-right: 6px;
+}
+.hub-quality-btn:hover { background: rgba(145,71,255,0.2); }
+.hub-quality-btn.quality-set {
+  background: rgba(34,197,94,0.15);
+  border-color: rgba(34,197,94,0.4);
+  color: #22c55e;
+}
