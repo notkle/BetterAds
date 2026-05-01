@@ -1105,11 +1105,21 @@ function openChatBar() {
   if (!chatFrameReady) {
     frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
     chatFrameReady = true;
+    // Auto-focus after iframe loads
+    frame.onload = () => {
+      setTimeout(() => {
+        window.postMessage({ source: 'betterads-page', type: 'ba-chat-focus' }, '*');
+      }, 800);
+    };
+  } else {
+    // Already loaded — focus immediately
+    setTimeout(() => {
+      window.postMessage({ source: 'betterads-page', type: 'ba-chat-focus' }, '*');
+    }, 100);
   }
 
   bar.style.display = 'block';
   chatBarOpen = true;
-  setTimeout(() => frame.focus(), 150);
 }
 
 function closeChatBar() {
