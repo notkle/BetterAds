@@ -854,9 +854,18 @@ function onMessage(e) {
     return;
   }
 
+  if (e.data.source === 'betterads-extension' && e.data.type === 'ba-esc-key') {
+    if (chatBarOpen) closeChatBar();
+    return;
+  }
+
   if (e.data.source === 'betterads-extension' && e.data.type === 'ba-enter-key') {
     if (document.getElementById('watchScreen')?.style.display !== 'none') {
-      chatBarOpen ? closeChatBar() : openChatBar();
+      if (!chatBarOpen) {
+        openChatBar();
+      } else {
+        closeChatBar();
+      }
     }
     return;
   }
@@ -1055,9 +1064,7 @@ document.addEventListener('keydown', e => {
 
   if (e.key === 'Enter' && !isTyping && !e.repeat) {
     if (document.getElementById('watchScreen')?.style.display !== 'none') {
-      chatBarOpen ? closeChatBar() : openChatBar();
-      e.preventDefault();
-      return;
+      if (!chatBarOpen) { openChatBar(); e.preventDefault(); return; }
     }
   }
 
@@ -1113,7 +1120,7 @@ function openChatBar() {
     frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
     chatFrameReady = true;
     frame.onload = () => {
-      setTimeout(() => focusChatInput(frame), 1500);
+      setTimeout(() => focusChatInput(frame), 800);
     };
   } else {
     focusChatInput(frame);
