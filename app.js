@@ -533,6 +533,13 @@ let twitchPlayer = null;
 function loadTwitch(channel) {
   const savedVol = parseFloat(localStorage.getItem('ba-twitch-volume') || '1.0');
 
+  // Wait for SDK to load if not ready yet
+  if (typeof Twitch === 'undefined') {
+    console.warn('[BetterAds] Waiting for Twitch SDK...');
+    setTimeout(() => loadTwitch(channel), 300);
+    return;
+  }
+
   // Destroy existing player if any
   if (twitchPlayer) {
     try { twitchPlayer.destroy(); } catch (_) {}
