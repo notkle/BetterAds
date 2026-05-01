@@ -526,6 +526,7 @@ function openHub() {
   syncHubSmartToggle();
   renderHubYouTube();
   renderFavorites();
+  updateFinishToggleUI();
 }
 
 function closeHub() {
@@ -594,13 +595,28 @@ window.addEventListener('message', e => {
       if (data.info.isLive !== undefined)      state.isLiveStream = !!data.info.isLive;
       updateYtProgressDisplay();
 
-      // playerState 0 = video ended — auto advance playlist
-      if (data.info.playerState === 0 && state.smartAds && state._swapped) {
-        console.log('[BetterAds] Video ended — advancing to next');
-        state.smartAdVideoId = null;
-        playlist.pickedIndex = null;
-        playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
-        loadSmartAd();
+      // playerState 0 = video ended
+      if (data.info.playerState === 0 && state._swapped) {
+        if (state.smartAds && state.adActive) {
+          // Smart ads + ad still running — advance playlist
+          console.log('[BetterAds] Video ended — advancing to next');
+          state.smartAdVideoId = null;
+          playlist.pickedIndex = null;
+          playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
+          loadSmartAd();
+        } else if (finishState.enabled && !state.adActive) {
+          // Finish mode — video done, ad already over — swap back now
+          console.log('[BetterAds] Video finished — returning to Twitch');
+          finishState.enabled = false;
+          updateFinishToggleUI();
+          forceReturnToTwitch();
+        } else if (state.smartAds && state.adActive) {
+          // Ad still running, advance playlist
+          state.smartAdVideoId = null;
+          playlist.pickedIndex = null;
+          playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
+          loadSmartAd();
+        }
       }
     }
   } catch (_) {}
@@ -754,6 +770,44 @@ function setLiveDot(channel, isLive) {
   if (dot) dot.title = isLive ? `${channel} is live` : `${channel} is offline`;
 }
 
+// ─── Finish ad break videos ───────────────────────────────────
+const finishState = {
+  enabled:   false,  // user preference
+  adWasActive: false, // tracks if ad was active when user toggled off
+};
+
+function toggleFinishVideo() {
+  finishState.enabled = !finishState.enabled;
+  localStorage.setItem('ba-finish-video', finishState.enabled);
+  updateFinishToggleUI();
+
+  // If turning OFF while YouTube is playing
+  if (!finishState.enabled && state._swapped) {
+    if (!state.adActive) {
+      // Ad already over — swap back to Twitch immediately
+      returnToTwitch();
+    }
+    // Ad still running — do nothing, returnToTwitch fires normally when ad ends
+  }
+}
+
+function updateFinishToggleUI() {
+  const toggle = document.getElementById('finishToggle');
+  const status = document.getElementById('hubFinishStatus');
+  if (!toggle) return;
+
+  toggle.setAttribute('aria-pressed', finishState.enabled);
+
+  // Show "active" indicator only when enabled AND currently in a swap
+  const isLive = finishState.enabled && state._swapped && !state.adActive;
+  if (status) status.style.display = isLive ? 'block' : 'none';
+  if (isLive) {
+    toggle.classList.add('pulsing');
+  } else {
+    toggle.classList.remove('pulsing');
+  }
+}
+
 // ─── Extension handshake ──────────────────────────────────────
 let extDetected   = false;
 let extCheckTimer = null;
@@ -841,13 +895,40 @@ async function showYouTube(duration) {
 
 function returnToTwitch() {
   if (!state._swapped) return;
+
+  // If "finish ad break videos" is ON and ad just ended — wait for video to finish
+  if (finishState.enabled && !state.adActive) {
+    // Mark that the ad is over but we're waiting for video
+    updateFinishToggleUI();
+    // Video end is handled by playerState === 0 in the message listener
+    return;
+  }
+
   document.getElementById('ytReturning').style.display = 'block';
   setTimeout(() => {
     if (state.smartAds) {
-      clearSmartAd();
+      clearSmartAd?.();
     } else {
       ytCommand('pauseVideo');
     }
+    stopYtProgress();
+    const overlay = document.getElementById('ytOverlay');
+    overlay.style.transition = 'opacity 0.6s ease';
+    overlay.classList.remove('visible');
+    document.getElementById('ytReturning').style.display = 'none';
+    state._swapped = false;
+    clearCountdown();
+    updateFinishToggleUI();
+  }, 1000);
+}
+
+function forceReturnToTwitch() {
+  // Hard return — bypasses finish video preference
+  finishState.enabled = false;
+  updateFinishToggleUI();
+  document.getElementById('ytReturning').style.display = 'block';
+  setTimeout(() => {
+    ytCommand('pauseVideo');
     stopYtProgress();
     const overlay = document.getElementById('ytOverlay');
     overlay.style.transition = 'opacity 0.6s ease';
@@ -978,6 +1059,9 @@ if (state.smartAds) {
 } else {
   ytInput.placeholder = 'e.g. lofi music chill beats...';
 }
+
+// Restore finish video preference
+finishState.enabled = localStorage.getItem('ba-finish-video') === 'true';
 
 // Render favorites dock
 renderSetupDock();
