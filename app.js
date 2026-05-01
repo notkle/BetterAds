@@ -918,8 +918,14 @@ function returnToTwitch() {
   if (!state._swapped) return;
 
   if (finishState.onceActive && !state.adActive) {
-    // Ad ended but user wants to finish video — mute Twitch so it doesn't bleed through
-    muteTwitch();
+    // Track ad as over without unmuting — fight Twitch's auto-unmute
+    // by re-muting repeatedly for 2 seconds after ad ends
+    let attempts = 0;
+    const remuter = setInterval(() => {
+      muteTwitch();
+      attempts++;
+      if (attempts >= 8 || !finishState.onceActive) clearInterval(remuter);
+    }, 250);
     updateFinishToggleUI();
     return;
   }
