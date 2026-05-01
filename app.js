@@ -1103,7 +1103,7 @@ function openChatBar() {
   if (!bar || !frame) return;
 
   if (!chatFrameReady) {
-    frame.src = `https://www.twitch.tv/popout/${state.channel}/chat?popout=`;
+    frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
     chatFrameReady = true;
   }
 
