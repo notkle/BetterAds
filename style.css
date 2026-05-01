@@ -1524,7 +1524,7 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 96px;
+  height: 42px;
   z-index: 50;
   overflow: hidden;
   background: #18181b;
@@ -1542,6 +1542,19 @@ html, body {
   height: 800px;
   border: none;
   position: absolute;
+  bottom: 32px; /* offset up to hide the bottom toolbar */
+  left: 0;
+}
+
+/* Dark mask over the bottom Twitch toolbar */
+.chat-bar::after {
+  content: '';
+  position: absolute;
   bottom: 0;
   left: 0;
+  right: 0;
+  height: 32px;
+  background: #18181b;
+  z-index: 2;
+  pointer-events: none;
 }
