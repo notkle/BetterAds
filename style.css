@@ -1238,3 +1238,47 @@ html, body {
 .hub-finish-toggle[aria-pressed="true"].pulsing {
   box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
 }
+
+/* ─── Finish this video (once) ───────────────────────────────── */
+.hub-finish-once-btn {
+  background: rgba(145,71,255,0.1);
+  border: 1px solid rgba(145,71,255,0.3);
+  border-radius: 6px;
+  color: var(--twitch);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  text-align: left;
+  letter-spacing: 0.3px;
+}
+.hub-finish-once-btn:hover {
+  background: rgba(145,71,255,0.2);
+}
+.hub-finish-once-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.hub-finish-once-btn.active {
+  background: rgba(145,71,255,0.25);
+  border-color: var(--twitch);
+  color: #fff;
+}
+
+.hub-finish-once-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #f59e0b;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
+
+.hub-finish-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.05);
+  margin: 8px 0;
+}
