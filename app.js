@@ -823,23 +823,16 @@ function toggleFinishVideo() {
 }
 
 function updateFinishToggleUI() {
-  const toggle  = document.getElementById('finishToggle');
-  const status  = document.getElementById('hubFinishStatus');
-  const onceBtn = document.getElementById('finishOnceBtn');
+  const toggle      = document.getElementById('finishToggle');
+  const onceToggle  = document.getElementById('finishOnceToggle');
+  const status      = document.getElementById('hubFinishStatus');
 
   if (toggle) toggle.setAttribute('aria-pressed', finishState.enabled);
+  if (onceToggle) onceToggle.setAttribute('aria-pressed', finishState.onceActive);
 
   const isLive = (finishState.enabled || finishState.onceActive) && state._swapped && !state.adActive;
   if (status) status.style.display = isLive ? 'block' : 'none';
   if (toggle) toggle.classList.toggle('pulsing', isLive);
-
-  // Update once button state
-  if (onceBtn) {
-    const swapping = state._swapped;
-    onceBtn.disabled = !swapping;
-    onceBtn.classList.toggle('active', finishState.onceActive);
-    onceBtn.textContent = finishState.onceActive ? '✕ cancel finish' : 'finish this video';
-  }
 }
 
 // ─── Extension handshake ──────────────────────────────────────
