@@ -1039,11 +1039,27 @@ function showToast() {
 
 // ─── Event delegation ─────────────────────────────────────────
 document.addEventListener('keydown', e => {
+  // Esc closes chat bar
+  if (e.key === 'Escape' && chatBarOpen) { closeChatBar(); return; }
+
+  // Enter with no input focused — toggle chat bar while watching
+  const tag      = document.activeElement?.tagName;
+  const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' ||
+                   document.activeElement?.contentEditable === 'true' ||
+                   document.activeElement?.closest?.('.hub');
+
+  if (e.key === 'Enter' && !isTyping && !e.repeat) {
+    if (document.getElementById('watchScreen')?.style.display !== 'none') {
+      chatBarOpen ? closeChatBar() : openChatBar();
+      return;
+    }
+  }
+
+  // Hub input handlers
   if (e.key !== 'Enter') return;
   const id = e.target?.id;
   if (id === 'favInput')        addFavorite();
   if (id === 'hubKeywordInput') searchManualPlaylist();
-  if (id === 'hubChatInput')    sendChatMessage();
 });
 
 document.addEventListener('input', e => {
@@ -1079,81 +1095,37 @@ document.getElementById('youtubeInput').addEventListener('keydown', e => {
 });
 
 // ─── Chat ─────────────────────────────────────────────────────
+let chatBarOpen    = false;
 let chatFrameReady = false;
-let chatFrameLoading = false;
-let pendingChatMessage = null;
 
-function ensureChatFrame(callback) {
+function openChatBar() {
+  if (!state.channel) return;
+  const bar   = document.getElementById('chatBar');
   const frame = document.getElementById('chatFrame');
-  if (!frame) return;
+  if (!bar || !frame) return;
 
-  if (chatFrameReady) { callback(); return; }
-
-  if (chatFrameLoading) {
-    pendingChatMessage = callback;
-    return;
+  if (!chatFrameReady) {
+    frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
+    chatFrameReady = true;
   }
 
-  // Load chat iframe for the first time
-  chatFrameLoading = true;
-  frame.src = `https://www.twitch.tv/embed/${state.channel}/chat?parent=${location.hostname}`;
-
-  frame.onload = () => {
-    // Give the chat UI time to fully render before injecting
-    setTimeout(() => {
-      chatFrameReady  = true;
-      chatFrameLoading = false;
-      callback();
-      if (pendingChatMessage) { pendingChatMessage(); pendingChatMessage = null; }
-    }, 2500);
-  };
+  bar.style.display = 'block';
+  chatBarOpen = true;
+  setTimeout(() => frame.focus(), 150);
 }
 
-function sendChatMessage() {
-  const input = document.getElementById('hubChatInput');
-  if (!input) return;
-  const msg = input.value.trim();
-  if (!msg) return;
-  if (!state.channel) { showChatHint('no stream loaded', 'error'); return; }
-
-  input.value = '';
-  showChatHint('connecting...', 'success');
-
-  ensureChatFrame(() => {
-    showChatHint('sending...', 'success');
-    window.postMessage({
-      source:  'betterads-page',
-      type:    'ba-chat',
-      message: msg,
-      channel: state.channel,
-    }, '*');
-  });
+function closeChatBar() {
+  const bar = document.getElementById('chatBar');
+  if (bar) bar.style.display = 'none';
+  chatBarOpen = false;
 }
 
-function showChatHint(text, type) {
-  const hint = document.getElementById('hubChatHint');
-  if (!hint) return;
-  hint.textContent   = text;
-  hint.className     = `hub-chat-hint ${type}`;
-  hint.style.display = 'block';
-  setTimeout(() => { hint.style.display = 'none'; }, 2500);
-}
-
-// Listen for confirmation back from extension
-window.addEventListener('message', e => {
-  if (!e.data || e.data.source !== 'betterads-extension') return;
-  if (e.data.type === 'ba-chat-sent')   showChatHint('✓ sent', 'success');
-  if (e.data.type === 'ba-chat-error')  showChatHint('⚠ not logged in', 'error');
-  if (e.data.type === 'ba-chat-closed') showChatHint('⚠ chat unavailable', 'error');
-});
-
-// Reset chat frame on channel switch or go back
 function resetChatFrame() {
   const frame = document.getElementById('chatFrame');
   if (frame) frame.src = 'about:blank';
-  chatFrameReady   = false;
-  chatFrameLoading = false;
-  pendingChatMessage = null;
+  chatFrameReady = false;
+  chatBarOpen    = false;
+  closeChatBar();
 }
 
 // ─── Dev helpers ──────────────────────────────────────────────
