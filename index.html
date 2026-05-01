@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="https://player.twitch.tv/js/embed/v1.js"></script>
 </head>
 <body>
 
@@ -71,7 +72,7 @@
   <!-- ── Watch screen ───────────────────────────────────────── -->
   <div class="watch-screen" id="watchScreen" style="display:none">
 
-    <iframe id="twitchFrame" class="watch-frame" allow="autoplay; fullscreen" allowfullscreen></iframe>
+    <div id="twitchPlayer" class="watch-frame"></div>
 
     <!-- Extension not detected warning -->
     <div class="ext-warning" id="extWarning" style="display:none">
@@ -92,6 +93,9 @@
         </div>
         <div class="yt-bar-right">
           <span class="yt-returning" id="ytReturning" style="display:none">returning to stream...</span>
+          <button class="yt-skip-btn" id="ytSkipBtn" onclick="skipToNext()" title="skip to next video" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -107,6 +111,10 @@
         <div class="hub-header">
           <span class="hub-brand">BA</span>
           <span class="hub-title">hub</span>
+          <button class="hub-quality-btn" id="hubQualityBtn" onclick="setMaxQuality(this)" title="set max quality">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            HD
+          </button>
           <button class="hub-close" onclick="closeHub()">✕</button>
         </div>
 
@@ -161,11 +169,14 @@
 
           <!-- Manual keyword search section -->
           <div id="hubManualSection">
-            <div class="hub-keyword-row">
-              <input class="hub-input" id="hubKeywordInput" type="text" placeholder="e.g. lofi music chill beats..." spellcheck="false" />
-              <button class="hub-search-btn" onclick="searchManualPlaylist()">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </button>
+            <div class="hub-keyword-wrap">
+              <div class="hub-keyword-row">
+                <input class="hub-input" id="hubKeywordInput" type="text" placeholder="e.g. lofi music chill beats..." spellcheck="false" autocomplete="off" />
+                <button class="hub-search-btn" onclick="searchManualPlaylist()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
+              </div>
+              <div class="hub-search-history" id="hubSearchHistory" style="display:none"></div>
             </div>
             <div class="hub-keyword-hint">keywords separated by spaces</div>
           </div>
