@@ -1045,8 +1045,7 @@ document.addEventListener('keydown', e => {
   // Enter with no input focused — toggle chat bar while watching
   const tag      = document.activeElement?.tagName;
   const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' ||
-                   document.activeElement?.contentEditable === 'true' ||
-                   document.activeElement?.closest?.('.hub');
+                   document.activeElement?.contentEditable === 'true';
 
   if (e.key === 'Enter' && !isTyping && !e.repeat) {
     if (document.getElementById('watchScreen')?.style.display !== 'none') {
