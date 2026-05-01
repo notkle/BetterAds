@@ -783,7 +783,10 @@ function finishThisVideo() {
   if (finishState.onceActive) {
     finishState.onceActive = false;
     updateFinishToggleUI();
-    if (!state.adActive) returnToTwitch();
+    if (!state.adActive) {
+      unmuteTwitch();
+      returnToTwitch();
+    }
     return;
   }
 
@@ -809,7 +812,24 @@ function updateFinishToggleUI() {
   if (onceToggle) onceToggle.setAttribute('aria-pressed', finishState.onceActive);
 }
 
-// ─── Extension handshake ──────────────────────────────────────
+function muteTwitch() {
+  try {
+    document.getElementById('twitchFrame').contentWindow.postMessage(
+      JSON.stringify({ eventName: 'mute', params: { muted: true } }), '*'
+    );
+  } catch (_) {}
+  // Also set via URL param isn't possible post-load, so we use a volume hack
+  const tf = document.getElementById('twitchFrame');
+  if (tf) tf.style.opacity = '1'; // keep visible, just muted via postMessage
+}
+
+function unmuteTwitch() {
+  try {
+    document.getElementById('twitchFrame').contentWindow.postMessage(
+      JSON.stringify({ eventName: 'mute', params: { muted: false } }), '*'
+    );
+  } catch (_) {}
+}
 let extDetected   = false;
 let extCheckTimer = null;
 
@@ -898,6 +918,8 @@ function returnToTwitch() {
   if (!state._swapped) return;
 
   if (finishState.onceActive && !state.adActive) {
+    // Ad ended but user wants to finish video — mute Twitch so it doesn't bleed through
+    muteTwitch();
     updateFinishToggleUI();
     return;
   }
@@ -910,6 +932,7 @@ function returnToTwitch() {
       ytCommand('pauseVideo');
     }
     stopYtProgress();
+    unmuteTwitch();
     const overlay = document.getElementById('ytOverlay');
     overlay.style.transition = 'opacity 0.6s ease';
     overlay.classList.remove('visible');
@@ -928,6 +951,7 @@ function forceReturnToTwitch() {
   setTimeout(() => {
     ytCommand('pauseVideo');
     stopYtProgress();
+    unmuteTwitch();
     const overlay = document.getElementById('ytOverlay');
     overlay.style.transition = 'opacity 0.6s ease';
     overlay.classList.remove('visible');
