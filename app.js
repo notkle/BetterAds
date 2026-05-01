@@ -322,20 +322,27 @@ async function fetchStreamGame(channel) {
 
 async function searchYouTubeViaWorker(query, maxResults = 5) {
   try {
-    const res  = await fetch(`${WORKER_URL}?q=${encodeURIComponent(query)}&max=${maxResults}`);
+    // Fetch more results than needed, then randomly sample for variety
+    const fetchCount = maxResults <= 5 ? 20 : maxResults;
+    const res  = await fetch(`${WORKER_URL}?q=${encodeURIComponent(query)}&max=${fetchCount}`);
     if (!res.ok) return null;
     const data  = await res.json();
     const items = data.items?.filter(i => i.id?.videoId);
     if (!items?.length) return null;
-    return items
+
+    const mapped = items
       .map(i => ({
-        id:        i.id.videoId,
-        title:     i.snippet?.title || '',
-        thumbnail: i.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
-        duration:  i.contentDetails?.duration || null,
+        id:           i.id.videoId,
+        title:        i.snippet?.title || '',
+        thumbnail:    i.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
+        duration:     i.contentDetails?.duration || null,
         durationSecs: parseDurationSecs(i.contentDetails?.duration),
       }))
-      .filter(v => v.durationSecs === null || v.durationSecs >= 120); // min 2 minutes
+      .filter(v => v.durationSecs === null || v.durationSecs >= 120);
+
+    // Randomly shuffle and take requested count
+    const shuffled = mapped.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, maxResults);
   } catch (_) { return null; }
 }
 
@@ -597,21 +604,15 @@ window.addEventListener('message', e => {
 
       // playerState 0 = video ended
       if (data.info.playerState === 0 && state._swapped) {
-        if (state.smartAds && state.adActive) {
-          // Smart ads + ad still running — advance playlist
-          console.log('[BetterAds] Video ended — advancing to next');
-          state.smartAdVideoId = null;
-          playlist.pickedIndex = null;
-          playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
-          loadSmartAd();
-        } else if (finishState.onceActive && !state.adActive) {
+        if (finishState.onceActive && !state.adActive) {
           // Finish mode — video done, ad already over — swap back now
           console.log('[BetterAds] Video finished — returning to Twitch');
           finishState.onceActive = false;
           updateFinishToggleUI();
           forceReturnToTwitch();
-        } else if (state.smartAds && state.adActive) {
-          // Ad still running, advance playlist
+        } else if (state.adActive || state._swapped) {
+          // Ad still running OR still in swap — advance to next video in playlist
+          console.log('[BetterAds] Video ended — advancing to next');
           state.smartAdVideoId = null;
           playlist.pickedIndex = null;
           playlist.index = (playlist.index + 1) % (playlist.videos.length || 1);
