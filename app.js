@@ -184,7 +184,9 @@ async function searchManualPlaylist() {
   const query = input?.value.trim();
   if (!query) return;
 
-  // Store keywords for use during ad breaks
+  // Save to history
+  saveToHistory(query);
+  document.getElementById('hubSearchHistory').style.display = 'none';
   localStorage.setItem('ba-manual-keywords', query);
 
   const loading = document.getElementById('playlistLoading');
@@ -255,6 +257,67 @@ function renderHubYouTube() {
   }
 
   syncHubSmartToggle();
+}
+
+// ─── Search history ───────────────────────────────────────────
+const MAX_HISTORY = 10;
+let searchHistory = JSON.parse(localStorage.getItem('ba-search-history') || '[]');
+
+function saveToHistory(query) {
+  searchHistory = searchHistory.filter(h => h !== query); // remove dupe
+  searchHistory.unshift(query); // add to front
+  if (searchHistory.length > MAX_HISTORY) searchHistory.pop();
+  localStorage.setItem('ba-search-history', JSON.stringify(searchHistory));
+}
+
+function deleteFromHistory(query, e) {
+  e.stopPropagation();
+  searchHistory = searchHistory.filter(h => h !== query);
+  localStorage.setItem('ba-search-history', JSON.stringify(searchHistory));
+  const input = document.getElementById('hubKeywordInput');
+  renderHistoryDropdown(input?.value || '');
+}
+
+function renderHistoryDropdown(filter) {
+  const el = document.getElementById('hubSearchHistory');
+  if (!el) return;
+
+  const matches = searchHistory.filter(h =>
+    filter.trim() === '' ? false : h.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  if (!matches.length) { el.style.display = 'none'; return; }
+
+  el.style.display = 'block';
+  el.innerHTML = matches.map(h => `
+    <div class="hub-history-item" onclick="selectHistory('${h.replace(/'/g, "\\'")}')">
+      <span class="hub-history-text">${h}</span>
+      <button class="hub-history-del" onclick="deleteFromHistory('${h.replace(/'/g, "\\'")}', event)">✕</button>
+    </div>
+  `).join('');
+}
+
+function selectHistory(query) {
+  const input = document.getElementById('hubKeywordInput');
+  if (input) input.value = query;
+  document.getElementById('hubSearchHistory').style.display = 'none';
+  searchManualPlaylist();
+}
+
+// ─── Skip to next video ───────────────────────────────────────
+function skipToNext() {
+  if (!state._swapped || !playlist.videos.length) return;
+  state.smartAdVideoId = null;
+  playlist.pickedIndex = null;
+  playlist.index = (playlist.index + 1) % playlist.videos.length;
+  loadSmartAd();
+}
+
+function updateSkipBtn() {
+  const btn = document.getElementById('ytSkipBtn');
+  if (!btn) return;
+  // Show skip button only when swapped and playlist has more than 1 video
+  btn.style.display = (state._swapped && playlist.videos.length > 1) ? 'flex' : 'none';
 }
 
 // ─── Smart Ads ────────────────────────────────────────────────
@@ -464,11 +527,66 @@ async function searchWithKeywords(query) {
   renderHubYouTube();
 }
 
+// ─── Twitch SDK player ────────────────────────────────────────
+let twitchPlayer = null;
+
 function loadTwitch(channel) {
-  const savedVol = localStorage.getItem('ba-twitch-volume');
-  const vol = savedVol !== null ? parseFloat(savedVol) : 1.0;
-  document.getElementById('twitchFrame').src =
-    `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${location.hostname}&autoplay=true&volume=${vol}`;
+  const savedVol = parseFloat(localStorage.getItem('ba-twitch-volume') || '1.0');
+
+  // Destroy existing player if any
+  if (twitchPlayer) {
+    try { twitchPlayer.destroy(); } catch (_) {}
+    twitchPlayer = null;
+    document.getElementById('twitchPlayer').innerHTML = '';
+  }
+
+  twitchPlayer = new Twitch.Player('twitchPlayer', {
+    channel:    channel,
+    parent:     [location.hostname],
+    autoplay:   true,
+    muted:      false,
+    volume:     savedVol,
+    width:      '100%',
+    height:     '100%',
+  });
+
+  // Set max quality once player is ready
+  twitchPlayer.addEventListener(Twitch.Player.READY, () => {
+    setMaxQuality();
+  });
+
+  // Save volume changes
+  twitchPlayer.addEventListener(Twitch.Player.PLAYBACK_STATS, () => {
+    try {
+      const vol = twitchPlayer.getVolume();
+      localStorage.setItem('ba-twitch-volume', vol);
+    } catch (_) {}
+  });
+}
+
+function setMaxQuality(btn) {
+  if (!twitchPlayer) return;
+  try {
+    const qualities = twitchPlayer.getQualities();
+    if (qualities && qualities.length > 0) {
+      // Qualities are ordered best-first — pick index 0
+      twitchPlayer.setQuality(qualities[0].group);
+      if (btn) {
+        btn.classList.add('quality-set');
+        btn.title = `quality: ${qualities[0].name}`;
+        setTimeout(() => btn.classList.remove('quality-set'), 2000);
+      }
+      console.log('[BetterAds] Quality set to:', qualities[0].name);
+    }
+  } catch (_) {}
+}
+
+function muteTwitch() {
+  if (twitchPlayer) twitchPlayer.setMuted(true);
+}
+
+function unmuteTwitch() {
+  if (twitchPlayer) twitchPlayer.setMuted(false);
 }
 
 // Fade YouTube volume to 0 over duration ms then call done()
@@ -488,17 +606,6 @@ function fadeOutYouTube(duration, done) {
     }
   }, interval);
 }
-
-// Save Twitch volume when user changes it
-window.addEventListener('message', e => {
-  if (!e.data) return;
-  try {
-    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-    if (data.eventName === 'volumechange' && data.params?.volume !== undefined) {
-      localStorage.setItem('ba-twitch-volume', data.params.volume);
-    }
-  } catch (_) {}
-});
 
 function isLiveStreamUrl(url) {
   return /youtube\.com\/live\//i.test(url) ||
@@ -531,7 +638,11 @@ function goBack() {
   clearCountdown();
   stopLivePolling();
   stopYtProgress();
-  document.getElementById('twitchFrame').src = 'about:blank';
+  if (twitchPlayer) {
+    try { twitchPlayer.destroy(); } catch (_) {}
+    twitchPlayer = null;
+    document.getElementById('twitchPlayer').innerHTML = '';
+  }
   document.getElementById('youtubeFrame').src = 'about:blank';
   hideYouTube(false);
   window.removeEventListener('message', onMessage);
@@ -620,6 +731,21 @@ document.addEventListener('keydown', e => {
   const id = e.target?.id;
   if (id === 'favInput')        addFavorite();
   if (id === 'hubKeywordInput') searchManualPlaylist();
+});
+
+// Search history dropdown on input
+document.addEventListener('input', e => {
+  if (e.target?.id === 'hubKeywordInput') {
+    renderHistoryDropdown(e.target.value);
+  }
+});
+
+// Hide dropdown on click outside
+document.addEventListener('click', e => {
+  if (!e.target?.closest('.hub-keyword-wrap')) {
+    const el = document.getElementById('hubSearchHistory');
+    if (el) el.style.display = 'none';
+  }
 });
 
 // ─── YouTube progress tracking ────────────────────────────────
@@ -844,24 +970,6 @@ function updateFinishToggleUI() {
   if (onceToggle) onceToggle.setAttribute('aria-pressed', finishState.onceActive);
 }
 
-function muteTwitch() {
-  try {
-    document.getElementById('twitchFrame').contentWindow.postMessage(
-      JSON.stringify({ eventName: 'mute', params: { muted: true } }), '*'
-    );
-  } catch (_) {}
-  // Also set via URL param isn't possible post-load, so we use a volume hack
-  const tf = document.getElementById('twitchFrame');
-  if (tf) tf.style.opacity = '1'; // keep visible, just muted via postMessage
-}
-
-function unmuteTwitch() {
-  try {
-    document.getElementById('twitchFrame').contentWindow.postMessage(
-      JSON.stringify({ eventName: 'mute', params: { muted: false } }), '*'
-    );
-  } catch (_) {}
-}
 let extDetected   = false;
 let extCheckTimer = null;
 
@@ -928,6 +1036,7 @@ async function showYouTube(duration) {
   document.getElementById('ytOverlay').classList.add('visible');
   document.getElementById('ytReturning').style.display = 'none';
   if (duration) startCountdown(duration);
+  updateSkipBtn();
 
   if (state.smartAds) {
     // Smart Ads: load contextual video from playlist
@@ -979,6 +1088,7 @@ function returnToTwitch() {
     finishState.onceActive = false;
     clearCountdown();
     updateFinishToggleUI();
+    updateSkipBtn();
     // Restore YouTube volume for next time
     ytCommandWithArgs('setVolume', [100]);
   });
