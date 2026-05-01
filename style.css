@@ -1479,3 +1479,67 @@ html, body {
   border-color: #e91916;
   color: #fff;
 }
+
+/* ─── Hub chat input ─────────────────────────────────────────── */
+.hub-chat-row {
+  padding: 8px 16px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.hub-chat-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hub-chat-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.hub-chat-input:focus {
+  border-color: var(--twitch);
+}
+.hub-chat-input::placeholder { color: #2a2a3a; }
+
+.hub-chat-hint {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  padding: 0 2px;
+}
+.hub-chat-hint.success { color: #22c55e; }
+.hub-chat-hint.error   { color: #ff4444; }
+
+/* ─── Chat bar ───────────────────────────────────────────────── */
+.chat-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 44px;       /* just the Twitch input bar height */
+  z-index: 50;
+  overflow: hidden;
+  animation: slide-up-chat 0.15s ease;
+}
+
+@keyframes slide-up-chat {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.chat-bar-frame {
+  width: 100%;
+  height: 500px;        /* full iframe height */
+  border: none;
+  position: absolute;
+  bottom: 0;            /* anchor to bottom so only input bar is visible */
+  left: 0;
+}
