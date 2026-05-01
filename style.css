@@ -1527,6 +1527,7 @@ html, body {
   height: 56px;
   z-index: 50;
   overflow: hidden;
+  background: #18181b; /* Twitch's dark background so no flash */
   box-shadow: 0 -2px 12px rgba(0,0,0,0.5);
   animation: slide-up-chat 0.15s ease;
 }
